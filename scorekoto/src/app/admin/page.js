@@ -29,6 +29,12 @@ export default function AdminPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
+  // Audit Logs & Analytics States
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+
   // Options for dropdowns (teams, seasons)
   const [options, setOptions] = useState({ teams: [], seasons: [] });
 
@@ -141,7 +147,7 @@ export default function AdminPage() {
 
   // Fetch items based on activeTab and search
   const fetchItems = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || activeTab === "audit" || activeTab === "analytics") return;
     try {
       setLoadingItems(true);
       const res = await fetch(`/api/admin/search?type=${activeTab}&q=${encodeURIComponent(searchQuery)}`);
@@ -169,9 +175,47 @@ export default function AdminPage() {
     }
   }, [activeTab, searchQuery, isAdmin, selectItem, isCreating]);
 
+  const fetchAuditLogs = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setLoadingAudit(true);
+      const res = await fetch("/api/admin/audit-logs");
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error("Failed to load audit logs:", err);
+    } finally {
+      setLoadingAudit(false);
+    }
+  }, [isAdmin]);
+
+  const fetchAnalytics = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setLoadingAnalytics(true);
+      const res = await fetch("/api/analytics");
+      if (res.ok) {
+        const data = await res.json();
+        setAnalyticsData(data.analytics || null);
+      }
+    } catch (err) {
+      console.error("Failed to load analytics:", err);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  }, [isAdmin]);
+
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    if (activeTab === "audit") {
+      fetchAuditLogs();
+    } else if (activeTab === "analytics") {
+      fetchAnalytics();
+    } else {
+      fetchItems();
+    }
+  }, [activeTab, fetchItems, fetchAuditLogs, fetchAnalytics]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -395,10 +439,241 @@ export default function AdminPage() {
         >
           <Icon name="player" /> Players ({activeTab === "players" && items.length > 0 ? `${items.length} viewed` : "6,993 in DB"})
         </button>
+
+        <button
+          className={`admin-tab-btn ${activeTab === "audit" ? "active" : ""}`}
+          onClick={() => {
+            setActiveTab("audit");
+            setIsCreating(false);
+            setSelectedItem(null);
+          }}
+        >
+          <Icon name="database" /> Audit Logs (Triggers)
+        </button>
+
+        <button
+          className={`admin-tab-btn ${activeTab === "analytics" ? "active" : ""}`}
+          onClick={() => {
+            setActiveTab("analytics");
+            setIsCreating(false);
+            setSelectedItem(null);
+          }}
+        >
+          <Icon name="target" /> Database Analytics
+        </button>
       </div>
 
-      {/* ADMIN WORKSPACE: Left List + Right Editor */}
-      <div className="admin-workspace">
+      {/* AUDIT LOGS VIEW (DATABASE TRIGGERS PROOF) */}
+      {activeTab === "audit" && (
+        <section className="admin-special-card">
+          <div className="admin-special-header">
+            <div>
+              <h2><Icon name="database" /> PostgreSQL Shadow Audit Trail (Live Triggers)</h2>
+              <p>Every administrative INSERT, UPDATE, and DELETE triggers <code>fn_audit_log_changes()</code>, capturing an immutable snapshot into <code>audit_log</code>.</p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchAuditLogs}
+              disabled={loadingAudit}
+              className="admin-refresh-btn"
+            >
+              <Icon name="refresh" /> {loadingAudit ? "Refreshing..." : "Refresh Logs"}
+            </button>
+          </div>
+
+          {loadingAudit ? (
+            <p className="admin-items-loading">Querying audit_log table...</p>
+          ) : auditLogs.length === 0 ? (
+            <p className="admin-items-empty">No audit logs recorded yet.</p>
+          ) : (
+            <div className="admin-audit-table-wrapper">
+              <table className="admin-audit-table">
+                <thead>
+                  <tr>
+                    <th>Log ID</th>
+                    <th>Timestamp</th>
+                    <th>Table</th>
+                    <th>Operation</th>
+                    <th>Record ID</th>
+                    <th>Changed Data (JSONB Snapshot)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map((log) => (
+                    <tr key={`log-${log.log_id}`}>
+                      <td><strong>#{log.log_id}</strong></td>
+                      <td style={{ whiteSpace: "nowrap" }}>{log.changed_at}</td>
+                      <td><span className="admin-table-pill">{log.table_name}</span></td>
+                      <td>
+                        <span className={`admin-op-pill ${log.operation.toLowerCase()}`}>
+                          {log.operation}
+                        </span>
+                      </td>
+                      <td><code>{log.record_id}</code></td>
+                      <td>
+                        <pre className="admin-json-preview">
+                          {JSON.stringify(log.changed_data, null, 2)}
+                        </pre>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* DATABASE ANALYTICS VIEW (3 COMPLEX QUERIES PROOF) */}
+      {activeTab === "analytics" && (
+        <section className="admin-special-card">
+          <div className="admin-special-header">
+            <div>
+              <h2><Icon name="target" /> Complex Database Queries & Analytics</h2>
+              <p>Live execution of the three CSE216 complex multi-table queries, window functions, and PL/pgSQL routines.</p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchAnalytics}
+              disabled={loadingAnalytics}
+              className="admin-refresh-btn"
+            >
+              <Icon name="refresh" /> {loadingAnalytics ? "Refreshing..." : "Re-run Queries"}
+            </button>
+          </div>
+
+          {loadingAnalytics || !analyticsData ? (
+            <p className="admin-items-loading">Executing complex SQL analytics queries...</p>
+          ) : (
+            <div className="admin-analytics-grid">
+              {/* COMPLEX QUERY 1 */}
+              <div className="admin-analytics-box">
+                <div className="admin-analytics-box-header">
+                  <h3>1. Standings & Performance Analytics</h3>
+                  <span className="admin-sql-badge">4-Table JOIN + DENSE_RANK() + PL/pgSQL Functions</span>
+                </div>
+                <p className="admin-sql-desc">
+                  Joins <code>team</code>, <code>team_season_stats</code>, <code>season</code>, <code>league</code>. Computes rank via <code>DENSE_RANK() OVER (...)</code>, and calls <code>fn_calculate_team_win_rate()</code> and <code>fn_get_team_recent_form()</code>.
+                </p>
+                <div className="admin-audit-table-wrapper">
+                  <table className="admin-audit-table">
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Team</th>
+                        <th>League</th>
+                        <th>Played</th>
+                        <th>Pts</th>
+                        <th>GD</th>
+                        <th>Win % (SQL Fn)</th>
+                        <th>Form (SQL Fn)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(analyticsData.standings || []).slice(0, 8).map((row, idx) => (
+                        <tr key={`stand-${idx}`}>
+                          <td><strong>#{row.league_rank}</strong></td>
+                          <td><strong>{row.team_name}</strong></td>
+                          <td>{row.league_name}</td>
+                          <td>{row.matches_played}</td>
+                          <td><strong>{row.points}</strong></td>
+                          <td>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</td>
+                          <td><span className="admin-winrate-pill">{row.overall_win_percentage}%</span></td>
+                          <td><code>{row.recent_form}</code></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* COMPLEX QUERY 2 */}
+              <div className="admin-analytics-box">
+                <div className="admin-analytics-box-header">
+                  <h3>2. Top Scorers & Career Contributions</h3>
+                  <span className="admin-sql-badge">3-Table JOIN + SUM() / AVG() + GROUP BY + HAVING</span>
+                </div>
+                <p className="admin-sql-desc">
+                  Joins <code>player</code>, <code>team</code>, <code>player_season_stats</code>. Aggregates career goals, assists, and total contributions filtered by <code>HAVING SUM(goals + assists) &gt; 0</code>.
+                </p>
+                <div className="admin-audit-table-wrapper">
+                  <table className="admin-audit-table">
+                    <thead>
+                      <tr>
+                        <th>Player</th>
+                        <th>Club</th>
+                        <th>Apps</th>
+                        <th>Goals</th>
+                        <th>Assists</th>
+                        <th>Total (G+A)</th>
+                        <th>Avg Mins</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(analyticsData.top_scorers || []).slice(0, 8).map((row, idx) => (
+                        <tr key={`scorer-${idx}`}>
+                          <td><strong>{row.player_name}</strong></td>
+                          <td>{row.current_team || "Free Agent"}</td>
+                          <td>{row.total_appearances}</td>
+                          <td><strong style={{ color: "var(--mint)" }}>{row.total_goals}</strong></td>
+                          <td>{row.total_assists}</td>
+                          <td><strong>{row.total_contributions}</strong></td>
+                          <td>{row.avg_minutes_played}m</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* COMPLEX QUERY 3 */}
+              <div className="admin-analytics-box">
+                <div className="admin-analytics-box-header">
+                  <h3>3. Team Rivalry & Head-to-Head Statistics</h3>
+                  <span className="admin-sql-badge">Self-Joins + Conditional CASE WHEN Aggregations</span>
+                </div>
+                <p className="admin-sql-desc">
+                  Analyzes head-to-head match encounters using conditional aggregations: <code>COUNT(CASE WHEN home_score &gt; away_score THEN 1 END)</code>, goal tallies, and average possession.
+                </p>
+                <div className="admin-audit-table-wrapper">
+                  <table className="admin-audit-table">
+                    <thead>
+                      <tr>
+                        <th>Home Club</th>
+                        <th>Away Club</th>
+                        <th>Encounters</th>
+                        <th>Home Wins</th>
+                        <th>Away Wins</th>
+                        <th>Draws</th>
+                        <th>Goals</th>
+                        <th>Avg Poss.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(analyticsData.head_to_head || []).slice(0, 8).map((row, idx) => (
+                        <tr key={`h2h-${idx}`}>
+                          <td><strong>{row.home_team_name}</strong></td>
+                          <td><strong>{row.away_team_name}</strong></td>
+                          <td><strong>{row.total_encounters}</strong></td>
+                          <td>{row.home_team_wins}</td>
+                          <td>{row.away_team_wins}</td>
+                          <td>{row.draws}</td>
+                          <td>{row.total_home_goals} - {row.total_away_goals}</td>
+                          <td>{row.avg_home_possession_pct}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* STANDARD CRUD WORKSPACE */}
+      {(activeTab === "matches" || activeTab === "teams" || activeTab === "players") && (
+        <div className="admin-workspace">
         {/* LEFT PANEL: SEARCH & SELECT LIST */}
         <aside className="admin-list-panel">
           {/* CREATE TRIGGER BUTTON */}
@@ -1182,6 +1457,7 @@ export default function AdminPage() {
           )}
         </section>
       </div>
+      )}
     </main>
   );
 }

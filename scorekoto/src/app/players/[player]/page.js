@@ -214,6 +214,13 @@ async function getPlayerDataFromDb(playerSlugOrId) {
       statSeasons,
     };
 
+    // Query PL/pgSQL database function for career totals
+    const careerRes = await pool.query(
+      `SELECT * FROM fn_get_player_career_summary($1)`,
+      [row.id]
+    );
+    player.careerSummary = careerRes.rows[0] || null;
+
     const hasInternationalCompetition = teamCompetitions.some((item) =>
       INTERNATIONAL_LEAGUE_IDS.has(Number(item.id))
     );
@@ -338,6 +345,16 @@ export default async function PlayerPage({ params }) {
             )}
             {playerData.value && (
               <span className="player-meta-badge"><Icon name="coins" /> {playerData.value}</span>
+            )}
+            {playerData.careerSummary && Number(playerData.careerSummary.total_goals) > 0 && (
+              <span className="player-meta-badge" title="Computed by PL/pgSQL function fn_get_player_career_summary">
+                ⚽ {playerData.careerSummary.total_goals} Career Goals
+              </span>
+            )}
+            {playerData.careerSummary && Number(playerData.careerSummary.total_assists) > 0 && (
+              <span className="player-meta-badge" title="Computed by PL/pgSQL function fn_get_player_career_summary">
+                🎯 {playerData.careerSummary.total_assists} Career Assists
+              </span>
             )}
           </div>
         </div>
