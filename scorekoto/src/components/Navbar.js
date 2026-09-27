@@ -18,7 +18,6 @@ export default function Navbar() {
     { href: "/", label: "Matches" },
     { href: "/teams", label: "Teams" },
     { href: "/leagues", label: "Leagues" },
-    { href: "/stats", label: "Stats" },
     { href: "/news", label: "News" },
   ];
 
