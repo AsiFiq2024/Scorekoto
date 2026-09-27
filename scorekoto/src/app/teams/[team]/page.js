@@ -220,7 +220,20 @@ export default async function TeamPage({ params }) {
               <span> · Win Rate: <strong>{teamData.winRate}%</strong></span>
             )}
             {teamData.recentForm && teamData.recentForm !== 'N/A' && (
-              <span> · Recent Form: <strong>{teamData.recentForm}</strong></span>
+              <span className="team-recent-form-inline">
+                {" · Form: "}
+                <span className="team-form-badges">
+                  {(teamData.recentForm.match(/[WDLwdl]/g) || []).map((ch, idx) => (
+                    <span
+                      key={idx}
+                      className={`form-badge-pill form-badge-${ch.toLowerCase()}`}
+                      title={ch.toUpperCase() === 'W' ? 'Win' : ch.toUpperCase() === 'D' ? 'Draw' : 'Loss'}
+                    >
+                      {ch.toUpperCase()}
+                    </span>
+                  ))}
+                </span>
+              </span>
             )}
           </p>
         </div>

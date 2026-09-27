@@ -10964,8 +10964,60 @@ textarea {
 }
 
 .stats-form-streak {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.form-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffffff;
+  flex-shrink: 0;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+  user-select: none;
+}
+
+.form-badge-pill:hover {
+  transform: translateY(-1px) scale(1.08);
+}
+
+.form-badge-w {
+  background: #10b981;
+}
+
+.form-badge-d {
+  background: #f59e0b;
+}
+
+.form-badge-l {
+  background: #ef4444;
+}
+
+.form-badge-match {
+  background: #64748b;
+}
+
+.team-recent-form-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.team-form-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .stats-rivalry-cell {

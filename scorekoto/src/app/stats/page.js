@@ -61,37 +61,21 @@ export default function StatsPage() {
     );
   }, [data.head_to_head, filterText]);
 
+  const parseFormBadges = (formStr) => {
+    if (!formStr || formStr === "N/A") return [];
+    const matches = formStr.match(/[WDLwdl]/g);
+    return matches ? matches.map((m) => m.toUpperCase()) : [];
+  };
+
   const renderFormBadge = (char, idx) => {
     const c = char?.toUpperCase();
-    let bg = "rgba(100, 116, 139, 0.2)";
-    let color = "#94a3b8";
-    if (c === "W") {
-      bg = "rgba(16, 185, 129, 0.2)";
-      color = "#34d399";
-    } else if (c === "D") {
-      bg = "rgba(245, 158, 11, 0.2)";
-      color = "#fbbf24";
-    } else if (c === "L") {
-      bg = "rgba(239, 68, 68, 0.2)";
-      color = "#f87171";
-    }
+    const label = c === "W" ? "Win" : c === "D" ? "Draw" : c === "L" ? "Loss" : "Match";
 
     return (
       <span
         key={idx}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "22px",
-          height: "22px",
-          borderRadius: "6px",
-          background: bg,
-          color: color,
-          fontSize: "11px",
-          fontWeight: "800",
-          marginRight: "4px",
-        }}
+        title={label}
+        className={`form-badge-pill form-badge-${c.toLowerCase()}`}
       >
         {c}
       </span>
@@ -197,7 +181,7 @@ export default function StatsPage() {
                     <th style={{ textAlign: "center" }}>GD</th>
                     <th style={{ textAlign: "center" }}>Pts</th>
                     <th style={{ textAlign: "center" }}>Win %</th>
-                    <th>Recent Form</th>
+                    <th style={{ minWidth: "160px" }}>Recent Form</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -244,12 +228,15 @@ export default function StatsPage() {
                         </span>
                       </td>
                       <td>
-                        <div className="stats-form-streak">
-                          {row.recent_form && row.recent_form !== "N/A"
-                            ? row.recent_form.split(" ").map((char, cIdx) => renderFormBadge(char, cIdx))
-                            : <span style={{ color: "var(--muted)", fontSize: "12px" }}>N/A</span>
-                          }
-                        </div>
+                        {parseFormBadges(row.recent_form).length > 0 ? (
+                          <div className="stats-form-streak">
+                            {parseFormBadges(row.recent_form).map((char, cIdx) =>
+                              renderFormBadge(char, cIdx)
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--muted)", fontSize: "12px" }}>—</span>
+                        )}
                       </td>
                     </tr>
                   ))}
