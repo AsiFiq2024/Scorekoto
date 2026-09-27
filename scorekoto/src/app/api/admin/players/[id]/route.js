@@ -92,7 +92,7 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      message: 'Player attributes and club transfer updated successfully in database',
+      message: 'Player attributes updated successfully in database',
       player: updatedPlayer,
     });
   } catch (err) {
