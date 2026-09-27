@@ -25,6 +25,8 @@ export default function AdminPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
   // Options for dropdowns (teams, seasons)
@@ -33,29 +35,31 @@ export default function AdminPage() {
   // Form State for editing or creating
   const [formData, setFormData] = useState({});
 
-  // Load dropdown options on mount
+  // Load dropdown options
+  const loadOptions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/options");
+      if (res.ok) {
+        const data = await res.json();
+        setOptions({
+          teams: data.teams || [],
+          seasons: data.seasons || [],
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load admin options:", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isAdmin) return;
-    async function loadOptions() {
-      try {
-        const res = await fetch("/api/admin/options");
-        if (res.ok) {
-          const data = await res.json();
-          setOptions({
-            teams: data.teams || [],
-            seasons: data.seasons || [],
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load admin options:", err);
-      }
-    }
     loadOptions();
-  }, [isAdmin]);
+  }, [isAdmin, loadOptions]);
 
   const selectItem = useCallback((item, tab = activeTab) => {
     setIsCreating(false);
     setSelectedItem(item);
+    setConfirmDeleteId(null);
     setStatusMessage({ type: "", text: "" });
     if (tab === "matches") {
       setFormData({
@@ -86,7 +90,7 @@ export default function AdminPage() {
         market_value_euros: item.market_value_euros ?? "",
         weight_cm: item.weight_cm ?? "",
         photo_url: item.photo_url || "",
-        team_id: item.team_id ?? (options.teams[0]?.team_id || 1),
+        team_id: item.team_id ?? (options.teams[0]?.team_id || ""),
       });
     }
   }, [activeTab, options.teams]);
@@ -95,6 +99,7 @@ export default function AdminPage() {
   const startCreating = useCallback(() => {
     setIsCreating(true);
     setSelectedItem(null);
+    setConfirmDeleteId(null);
     setStatusMessage({ type: "", text: "" });
 
     if (activeTab === "matches") {
@@ -104,7 +109,7 @@ export default function AdminPage() {
         season_id: options.seasons[0]?.season_id || "",
         home_score: "",
         away_score: "",
-        status: "NS",
+        status: "UPCOMING",
         venue: "",
         match_date: new Date().toISOString().slice(0, 16),
         home_possession: "",
@@ -204,6 +209,10 @@ export default function AdminPage() {
           setItems((prev) => [createdEntity, ...prev]);
           setIsCreating(false);
           setSelectedItem(createdEntity);
+
+          if (activeTab === "teams") {
+            loadOptions();
+          }
         }
       } else {
         // UPDATE RECORD VIA PUT
@@ -231,6 +240,10 @@ export default function AdminPage() {
           setItems((prev) =>
             prev.map((item) => (getItemId(item, activeTab) === id ? { ...item, ...formData } : item))
           );
+
+          if (activeTab === "teams") {
+            loadOptions();
+          }
         }
       }
     } catch (err) {
@@ -238,6 +251,63 @@ export default function AdminPage() {
       setStatusMessage({ type: "error", text: "Network error while saving to database." });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!selectedItem) return;
+    const id = getItemId(selectedItem, activeTab);
+    setConfirmDeleteId(id);
+  };
+
+  const executeDelete = async () => {
+    if (!selectedItem) return;
+    const id = getItemId(selectedItem, activeTab);
+    setIsDeleting(true);
+    setStatusMessage({ type: "", text: "" });
+
+    try {
+      const res = await fetch(`/api/admin/${activeTab}/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setStatusMessage({
+          type: "error",
+          text: data.error || `Failed to delete ${activeTab.slice(0, -1)} from PostgreSQL database.`,
+        });
+      } else {
+        setStatusMessage({
+          type: "success",
+          text: data.message || `${activeTab.slice(0, -1).toUpperCase()} #${id} was permanently deleted from PostgreSQL database!`,
+        });
+
+        const remainingItems = items.filter(
+          (item) => getItemId(item, activeTab) !== id
+        );
+        setItems(remainingItems);
+        setConfirmDeleteId(null);
+
+        if (remainingItems.length > 0) {
+          selectItem(remainingItems[0], activeTab);
+        } else {
+          setSelectedItem(null);
+          setFormData({});
+        }
+
+        if (activeTab === "teams") {
+          loadOptions();
+        }
+      }
+    } catch (err) {
+      console.error("Error deleting item:", err);
+      setStatusMessage({
+        type: "error",
+        text: "Network error while deleting from database.",
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -372,43 +442,60 @@ export default function AdminPage() {
                     className={`admin-list-item ${isSelected ? "selected" : ""}`}
                     onClick={() => selectItem(item)}
                   >
-                    {activeTab === "matches" && (
-                      <>
-                        <div className="item-title">
-                          <strong>{item.home_team}</strong> vs <strong>{item.away_team}</strong>
-                        </div>
-                        <div className="item-sub">
-                          <span className="item-id">ID: #{item.match_id}</span>
-                          <span className="item-score">{item.home_score} - {item.away_score}</span>
-                          <span className="item-status">{item.status}</span>
-                        </div>
-                      </>
-                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {activeTab === "matches" && (
+                          <>
+                            <div className="item-title">
+                              <strong>{item.home_team}</strong> vs <strong>{item.away_team}</strong>
+                            </div>
+                            <div className="item-sub">
+                              <span className="item-id">ID: #{item.match_id}</span>
+                              <span className="item-score">{item.home_score} - {item.away_score}</span>
+                              <span className="item-status">{item.status}</span>
+                            </div>
+                          </>
+                        )}
 
-                    {activeTab === "teams" && (
-                      <>
-                        <div className="item-title">
-                          <strong>{item.name}</strong> ({item.short_name || "---"})
-                        </div>
-                        <div className="item-sub">
-                          <span className="item-id">ID: #{item.team_id}</span>
-                          <span>{item.stadium_name || "Stadium"}</span>
-                        </div>
-                      </>
-                    )}
+                        {activeTab === "teams" && (
+                          <>
+                            <div className="item-title">
+                              <strong>{item.name}</strong> ({item.short_name || "---"})
+                            </div>
+                            <div className="item-sub">
+                              <span className="item-id">ID: #{item.team_id}</span>
+                              <span>{item.stadium_name || "Stadium"}</span>
+                            </div>
+                          </>
+                        )}
 
-                    {activeTab === "players" && (
-                      <>
-                        <div className="item-title">
-                          <strong>{item.first_name} {item.last_name}</strong>
-                        </div>
-                        <div className="item-sub">
-                          <span className="item-id">ID: #{item.player_id}</span>
-                          <span>{item.primary_position}</span>
-                          <span>{item.team_name || "Team"}</span>
-                        </div>
-                      </>
-                    )}
+                        {activeTab === "players" && (
+                          <>
+                            <div className="item-title">
+                              <strong>{item.first_name} {item.last_name}</strong>
+                            </div>
+                            <div className="item-sub">
+                              <span className="item-id">ID: #{item.player_id}</span>
+                              <span>{item.primary_position}</span>
+                              <span>{item.team_name || "Team"}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="admin-item-delete-btn"
+                        title={`Delete ${activeTab.slice(0, -1)} #${id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectItem(item);
+                          setConfirmDeleteId(id);
+                        }}
+                      >
+                        <Icon name="trash" />
+                      </button>
+                    </div>
                   </div>
                 );
               })
@@ -491,11 +578,13 @@ export default function AdminPage() {
                   </div>
 
                   <div className="form-group">
-                    <label>Season / Competition</label>
+                    <label>Season / Competition *</label>
                     <select
                       value={formData.season_id || ""}
                       onChange={(e) => handleInputChange("season_id", e.target.value)}
+                      required
                     >
+                      <option value="">-- Select Season / Competition --</option>
                       {options.seasons.map((s) => (
                         <option key={`season-${s.season_id}`} value={s.season_id}>
                           {s.league_name} ({s.year})
@@ -539,22 +628,24 @@ export default function AdminPage() {
                   </div>
 
                   <div className="form-group">
-                    <label>Home Score</label>
+                    <label>Home Score {formData.status === "FT" ? "*" : "(if completed)"}</label>
                     <input
                       type="number"
                       min="0"
-                      value={formData.home_score ?? 0}
+                      value={formData.home_score ?? ""}
                       onChange={(e) => handleInputChange("home_score", e.target.value)}
+                      required={formData.status === "FT"}
                     />
                   </div>
 
                   <div className="form-group">
-                    <label>Away Score</label>
+                    <label>Away Score {formData.status === "FT" ? "*" : "(if completed)"}</label>
                     <input
                       type="number"
                       min="0"
-                      value={formData.away_score ?? 0}
+                      value={formData.away_score ?? ""}
                       onChange={(e) => handleInputChange("away_score", e.target.value)}
+                      required={formData.status === "FT"}
                     />
                   </div>
 
@@ -564,7 +655,7 @@ export default function AdminPage() {
                       type="number"
                       min="0"
                       max="100"
-                      value={formData.home_possession ?? 50}
+                      value={formData.home_possession ?? ""}
                       onChange={(e) => handleInputChange("home_possession", e.target.value)}
                     />
                   </div>
@@ -575,7 +666,7 @@ export default function AdminPage() {
                       type="number"
                       min="0"
                       max="100"
-                      value={formData.away_possession ?? 50}
+                      value={formData.away_possession ?? ""}
                       onChange={(e) => handleInputChange("away_possession", e.target.value)}
                     />
                   </div>
@@ -727,7 +818,7 @@ export default function AdminPage() {
                     <input
                       type="number"
                       min="0"
-                      value={formData.market_value_euros ?? 0}
+                      value={formData.market_value_euros ?? ""}
                       onChange={(e) => handleInputChange("market_value_euros", e.target.value)}
                     />
                   </div>
@@ -737,7 +828,7 @@ export default function AdminPage() {
                     <input
                       type="number"
                       min="0"
-                      value={formData.weight_cm ?? 0}
+                      value={formData.weight_cm ?? ""}
                       onChange={(e) => handleInputChange("weight_cm", e.target.value)}
                     />
                   </div>
@@ -790,14 +881,49 @@ export default function AdminPage() {
                     + Create New
                   </button>
                   <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={isSaving || isDeleting}
+                    className="admin-delete-btn"
+                    title={`Delete this ${activeTab.slice(0, -1)} from database`}
+                  >
+                    <Icon name="trash" /> Delete
+                  </button>
+                  <button
                     type="submit"
-                    disabled={isSaving}
+                    disabled={isSaving || isDeleting}
                     className="admin-save-btn"
                   >
                     {isSaving ? "Saving to PostgreSQL..." : <><Icon name="save" /> Save Changes to Database</>}
                   </button>
                 </div>
               </div>
+
+              {confirmDeleteId === getItemId(selectedItem, activeTab) && (
+                <div className="admin-delete-confirm-box">
+                  <span>
+                    ⚠️ Permanently delete <strong>{activeTab.slice(0, -1).toUpperCase()} #{confirmDeleteId}</strong>? All associated database entries will be removed.
+                  </span>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="admin-cancel-btn"
+                      onClick={() => setConfirmDeleteId(null)}
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-delete-confirm-btn"
+                      onClick={executeDelete}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? "Deleting..." : "Yes, Delete Permanently"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {statusMessage.text && (
                 <div className={`admin-status-banner ${statusMessage.type}`}>

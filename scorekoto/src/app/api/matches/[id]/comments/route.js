@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/app/lib/db';
+import pool, { withTransaction } from '@/app/lib/db';
 import { getUserFromRequest } from '@/app/lib/auth';
 
 // GET all comments for a match ordered by time
@@ -79,18 +79,22 @@ export async function POST(request, { params }) {
       RETURNING comment_id, match_id, user_id, username, comment_text, reaction, created_at;
     `;
 
-    const result = await pool.query(insertQuery, [
-      matchId,
-      userId,
-      username,
-      comment_text.trim(),
-      selectedReaction,
-    ]);
+    // Explicit transaction control: COMMIT & ROLLBACK
+    const newComment = await withTransaction(async (client) => {
+      const result = await client.query(insertQuery, [
+        matchId,
+        userId,
+        username,
+        comment_text.trim(),
+        selectedReaction,
+      ]);
+      return result.rows[0];
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Comment added successfully',
-      comment: result.rows[0],
+      comment: newComment,
     }, { status: 201 });
   } catch (err) {
     console.error('Error posting comment:', err);
@@ -122,21 +126,22 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Check if user is owner or admin
-    if (user.role === 'admin') {
-      await pool.query('DELETE FROM match_comment WHERE comment_id = $1', [commentId]);
-    } else {
-      const res = await pool.query(
-        'DELETE FROM match_comment WHERE comment_id = $1 AND user_id = $2',
-        [commentId, user.user_id]
-      );
-      if (res.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Permission denied or comment not found' },
-          { status: 403 }
+    // Explicit transaction control: COMMIT & ROLLBACK
+    await withTransaction(async (client) => {
+      if (user.role === 'admin') {
+        await client.query('DELETE FROM match_comment WHERE comment_id = $1', [commentId]);
+      } else {
+        const res = await client.query(
+          'DELETE FROM match_comment WHERE comment_id = $1 AND user_id = $2',
+          [commentId, user.user_id]
         );
+        if (res.rowCount === 0) {
+          const err = new Error('Permission denied or comment not found');
+          err.status = 403;
+          throw err;
+        }
       }
-    }
+    });
 
     return NextResponse.json({
       success: true,
@@ -145,8 +150,8 @@ export async function DELETE(request, { params }) {
   } catch (err) {
     console.error('Error deleting comment:', err);
     return NextResponse.json(
-      { error: 'Failed to delete comment' },
-      { status: 500 }
+      { error: err.message || 'Failed to delete comment' },
+      { status: err.status || 500 }
     );
   }
 }

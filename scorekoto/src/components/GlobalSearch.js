@@ -6,7 +6,7 @@ import Icon from "./Icon";
 
 export default function GlobalSearch() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState({ teams: [], players: [], leagues: [], matches: [] });
+  const [results, setResults] = useState({ teams: [], players: [], leagues: [], matches: [], news: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const searchRef = useRef(null);
@@ -14,7 +14,7 @@ export default function GlobalSearch() {
   useEffect(() => {
     const trimmed = query.trim();
     if (!trimmed) {
-      setResults({ teams: [], players: [], leagues: [], matches: [] });
+      setResults({ teams: [], players: [], leagues: [], matches: [], news: [] });
       setIsLoading(false);
       return;
     }
@@ -25,7 +25,7 @@ export default function GlobalSearch() {
         const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}&limit=5`);
         if (res.ok) {
           const data = await res.json();
-          setResults(data.results || { teams: [], players: [], leagues: [], matches: [] });
+          setResults(data.results || { teams: [], players: [], leagues: [], matches: [], news: [] });
         }
       } catch (err) {
         console.error("Global search error:", err);
@@ -52,11 +52,12 @@ export default function GlobalSearch() {
     (results.players?.length || 0) > 0 ||
     (results.teams?.length || 0) > 0 ||
     (results.leagues?.length || 0) > 0 ||
-    (results.matches?.length || 0) > 0;
+    (results.matches?.length || 0) > 0 ||
+    (results.news?.length || 0) > 0;
 
   function clearSearch() {
     setQuery("");
-    setResults({ teams: [], players: [], leagues: [], matches: [] });
+    setResults({ teams: [], players: [], leagues: [], matches: [], news: [] });
     setIsOpen(false);
   }
 
@@ -66,7 +67,7 @@ export default function GlobalSearch() {
         <Icon name="search" className="search-icon" />
         <input
           type="text"
-          placeholder="Search teams, players, leagues, matches..."
+          placeholder="Search teams, players, leagues, news..."
           value={query}
           onFocus={() => setIsOpen(true)}
           onChange={(event) => {
@@ -205,6 +206,39 @@ export default function GlobalSearch() {
                   </div>
                   <Icon name="chevronRight" className="search-result-arrow" />
                 </Link>
+              ))}
+            </SearchSection>
+          )}
+
+          {!isLoading && results.news?.length > 0 && (
+            <SearchSection title="News & Headlines">
+              {results.news.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.url || "/news"}
+                  target={item.url ? "_blank" : undefined}
+                  rel={item.url ? "noopener noreferrer" : undefined}
+                  className="search-result-item"
+                  onClick={clearSearch}
+                >
+                  <div className="search-result-icon">
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt=""
+                        style={{ width: "28px", height: "28px", borderRadius: "4px", objectFit: "cover" }}
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                    ) : (
+                      <Icon name="message" />
+                    )}
+                  </div>
+                  <div className="search-result-details">
+                    <strong>{item.title}</strong>
+                    <span>{item.category || "Football News"}</span>
+                  </div>
+                  <Icon name="chevronRight" className="search-result-arrow" />
+                </a>
               ))}
             </SearchSection>
           )}

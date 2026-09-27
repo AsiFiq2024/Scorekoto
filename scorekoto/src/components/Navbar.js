@@ -18,7 +18,7 @@ export default function Navbar() {
     { href: "/", label: "Matches" },
     { href: "/teams", label: "Teams" },
     { href: "/leagues", label: "Leagues" },
-    { href: "/favorites", label: "Favorites" },
+    { href: "/news", label: "News" },
   ];
 
   const isActiveLink = (href) => href === "/"
@@ -76,15 +76,10 @@ export default function Navbar() {
           ))}
         </div>
 
-        {user && (
-          <Link href="/profile" className="nav-profile-link">
-            <Icon name="user" /> Profile
-          </Link>
-        )}
-
         {user?.role === "admin" && (
-          <Link href="/admin" className="nav-admin-link">
-            <Icon name="shield" /> Admin Panel
+          <Link href="/admin" className="nav-admin-link" title="Admin Panel">
+            <Icon name="shield" />
+            <span className="nav-admin-text">Admin</span>
           </Link>
         )}
 
@@ -93,7 +88,8 @@ export default function Navbar() {
             user ? (
               <div className="nav-user-info">
                 <Link href="/profile" className="nav-user-badge" title="Go to My Profile">
-                  <Icon name={user.role === "admin" ? "shield" : "user"} /> {user.username}
+                  <Icon name={user.role === "admin" ? "shield" : "user"} />
+                  <span className="nav-user-name">{user.username}</span>
                 </Link>
                 <button
                   onClick={logout}

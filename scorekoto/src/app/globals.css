@@ -110,6 +110,8 @@
 
 html {
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background: var(--background);
   color-scheme: light;
 }
@@ -120,6 +122,9 @@ html[data-theme="dark"] {
 
 body {
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;
+  position: relative;
   margin: 0;
   background:
     radial-gradient(circle at top right, rgba(85, 230, 177, 0.12), transparent 32rem),
@@ -255,6 +260,10 @@ img {
   top: 0;
   z-index: 50;
 
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+
   height: 68px;
   padding: 0 30px;
 
@@ -296,8 +305,11 @@ img {
 }
 
 .nav-links {
+  min-width: 0;
+  flex: 1;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
 }
 
@@ -627,12 +639,16 @@ img {
   display: flex;
   align-items: center;
   margin-left: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-user-badge {
@@ -643,10 +659,18 @@ img {
   border: 1px solid #1a2721;
   padding: 6px 12px;
   border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-logout-btn {
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+  padding: 6px 14px;
   border-radius: 999px;
   background: transparent;
   border: 1px solid #24352c;
@@ -654,6 +678,7 @@ img {
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
+  line-height: 1.2;
   transition: all 160ms ease;
 }
 
@@ -706,6 +731,9 @@ img {
 .page-layout {
   display: flex;
   min-height: calc(100vh - 68px);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .sidebar {
@@ -1036,6 +1064,8 @@ img {
 .main-content {
   flex: 1;
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 32px;
 }
 
@@ -5442,11 +5472,11 @@ img {
 .global-search {
   position: relative;
 
-  flex: 1;
+  flex: 1 1 200px;
 
-  width: 100%;
-  max-width: 1000px;
-  min-width: 250px;
+  width: auto;
+  max-width: 360px;
+  min-width: 120px;
 
   z-index: 100;
 }
@@ -6141,12 +6171,16 @@ img {
   display: flex;
   align-items: center;
   margin-left: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-user-badge {
@@ -6161,17 +6195,26 @@ img {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.2px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-logout-btn {
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+  padding: 6px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   background: transparent;
   color: #a0aec0;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  line-height: 1.2;
   transition: all 160ms ease;
 }
 
@@ -6409,10 +6452,21 @@ img {
 }
 
 /* Teams Directory Page */
-.teams-directory-page {
+.teams-directory-page,
+.news-hub-page {
   max-width: 1200px;
   margin: 0 auto;
   padding: 30px 20px;
+}
+
+.news-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(105, 245, 189, 0.4);
+  box-shadow: var(--shadow-md);
+}
+
+.news-read-more:hover {
+  text-decoration: underline;
 }
 
 .teams-search-bar {
@@ -7271,6 +7325,92 @@ img {
   background: #16221c;
   color: #ffffff;
   border-color: #4a5d53;
+}
+
+.admin-delete-btn {
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  font-weight: 750;
+  font-size: 13.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s ease;
+}
+
+.admin-delete-btn:hover:not(:disabled) {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+.admin-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-delete-confirm-box {
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-delete-confirm-box span {
+  color: #fca5a5;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.admin-delete-confirm-box strong {
+  color: #ffffff;
+}
+
+.admin-delete-confirm-btn {
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-delete-confirm-btn:hover:not(:disabled) {
+  background: #dc2626;
+  box-shadow: 0 3px 12px rgba(239, 68, 68, 0.4);
+}
+
+.admin-item-delete-btn {
+  background: transparent;
+  border: none;
+  color: #72847c;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.admin-item-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
 }
 
 .editor-actions-group {
@@ -9551,6 +9691,9 @@ body {
 }
 
 .navbar {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   height: 72px;
   padding: 0 clamp(18px, 3vw, 42px);
   gap: clamp(16px, 2vw, 30px);
@@ -9585,6 +9728,9 @@ body {
 .nav-links {
   min-width: 0;
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 9px;
 }
 
@@ -9620,7 +9766,9 @@ body {
 }
 
 .global-search {
-  max-width: 440px;
+  flex: 1 1 180px;
+  max-width: 360px;
+  min-width: 120px;
 }
 
 .search-input-wrapper {
@@ -9643,6 +9791,9 @@ body {
 
 .page-layout {
   min-height: calc(100vh - 72px);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .sidebar {
@@ -9665,6 +9816,9 @@ body {
 }
 
 .main-content {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: clamp(22px, 3vw, 38px);
 }
 
@@ -10052,19 +10206,64 @@ textarea {
   background: #0b1a12;
 }
 
-@media (max-width: 1180px) {
-  .theme-toggle-label,
-  .nav-profile-link {
-    display: none;
+.theme-toggle-label {
+  display: none;
+}
+
+@media (min-width: 1440px) {
+  .theme-toggle-label {
+    display: inline;
+  }
+}
+
+@media (max-width: 1280px) {
+  .navbar {
+    padding: 0 18px;
+    gap: 16px;
+  }
+
+  .nav-links {
+    gap: 8px;
   }
 
   .global-search {
-    min-width: 190px;
-    max-width: 320px;
+    max-width: 260px;
+    min-width: 120px;
   }
 
   .nav-primary-links a {
-    padding-inline: 9px;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 1050px) {
+  .navbar-logo .brand-logo-wordmark {
+    display: none;
+  }
+
+  .navbar-logo {
+    width: 34px;
+    min-width: 34px;
+  }
+
+  .global-search {
+    max-width: 200px;
+    min-width: 100px;
+  }
+
+  .nav-admin-link .nav-admin-text {
+    display: none;
+  }
+
+  .nav-admin-link {
+    padding: 6px 8px;
+    border-radius: 999px;
+  }
+
+  .nav-primary-links a {
+    padding: 6px 8px;
+    font-size: 11.5px;
   }
 }
 
@@ -10072,6 +10271,7 @@ textarea {
   .navbar {
     height: 64px;
     padding-inline: 14px;
+    gap: 8px;
   }
 
   .page-layout {
@@ -10082,13 +10282,21 @@ textarea {
     top: 64px;
   }
 
-  .nav-admin-link,
-  .nav-user-info .nav-user-badge {
+  .nav-user-info .nav-user-name {
     display: none;
   }
 
+  .nav-user-info .nav-user-badge {
+    padding: 6px 9px;
+  }
+
+  .nav-logout-btn {
+    padding: 5px 9px;
+    font-size: 11.5px;
+  }
+
   .global-search {
-    min-width: 160px;
+    min-width: 110px;
     max-width: none;
   }
 }
@@ -10098,6 +10306,12 @@ textarea {
     height: 64px;
     background: #050c08;
     backdrop-filter: none;
+  }
+
+  .page-layout {
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
   }
 
   .sidebar,
@@ -10132,8 +10346,8 @@ textarea {
     right: 12px;
     bottom: 10px;
     left: 12px;
-    width: calc(100vw - 24px);
-    max-width: none;
+    width: auto;
+    max-width: calc(100% - 24px);
     justify-content: space-around;
     padding: 6px;
     border-color: rgba(105, 245, 189, 0.18);
@@ -10163,6 +10377,7 @@ textarea {
   }
 
   .teams-directory-page,
+  .news-hub-page,
   .leagues-page,
   .favorites-page {
     width: 100%;

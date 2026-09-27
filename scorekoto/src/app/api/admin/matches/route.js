@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/app/lib/db';
+import pool, { withTransaction } from '@/app/lib/db';
 import { getAdminFromRequest } from '@/app/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -117,20 +117,22 @@ export async function POST(request) {
       RETURNING *;
     `;
 
-    const result = await pool.query(insertQuery, [
-      resolvedSeasonId,
-      homeId,
-      awayId,
-      parsedDate,
-      matchVenue,
-      matchStatus,
-      parsedHomeScore,
-      parsedAwayScore,
-      parsedHomePossession,
-      parsedAwayPossession,
-    ]);
-
-    const createdMatch = result.rows[0];
+    // Explicit transaction control: COMMIT & ROLLBACK
+    const createdMatch = await withTransaction(async (client) => {
+      const result = await client.query(insertQuery, [
+        resolvedSeasonId,
+        homeId,
+        awayId,
+        parsedDate,
+        matchVenue,
+        matchStatus,
+        parsedHomeScore,
+        parsedAwayScore,
+        parsedHomePossession,
+        parsedAwayPossession,
+      ]);
+      return result.rows[0];
+    });
 
     // Fetch league name for display
     const leagueRes = await pool.query(`

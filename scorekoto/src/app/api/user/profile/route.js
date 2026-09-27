@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/app/lib/db';
+import pool, { withTransaction } from '@/app/lib/db';
 import { getUserFromRequest } from '@/app/lib/auth';
 
 // GET: Fetch current user profile, favorite counts, and recent reactions
@@ -102,25 +102,29 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'Email is already in use' }, { status: 409 });
     }
 
-    // Update user record
-    const updateRes = await pool.query(
-      `UPDATE users 
-       SET username = $1, email = $2 
-       WHERE user_id = $3 
-       RETURNING user_id, username, email, role, created_at`,
-      [cleanUsername, cleanEmail, user.user_id]
-    );
+    // Explicit transaction control: COMMIT & ROLLBACK
+    const updatedUser = await withTransaction(async (client) => {
+      const updateRes = await client.query(
+        `UPDATE users 
+         SET username = $1, email = $2 
+         WHERE user_id = $3 
+         RETURNING user_id, username, email, role, created_at`,
+        [cleanUsername, cleanEmail, user.user_id]
+      );
 
-    // Also sync username in recent match comments
-    await pool.query(
-      `UPDATE match_comment SET username = $1 WHERE user_id = $2`,
-      [cleanUsername, user.user_id]
-    ).catch(() => {});
+      // Also sync username in recent match comments
+      await client.query(
+        `UPDATE match_comment SET username = $1 WHERE user_id = $2`,
+        [cleanUsername, user.user_id]
+      );
+
+      return updateRes.rows[0];
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Profile updated successfully',
-      user: updateRes.rows[0],
+      user: updatedUser,
     });
   } catch (error) {
     console.error('Error updating user profile:', error);

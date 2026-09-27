@@ -6,8 +6,6 @@ import { useAuth } from "@/context/AuthContext";
 import Icon from "./Icon";
 
 const emptySidebarData = {
-  topTeams: [],
-  topLeagues: [],
   favorites: {
     teams: [],
     leagues: [],
@@ -109,8 +107,6 @@ export default function Sidebar() {
         const data = await response.json();
         if (isActive) {
           setSidebarData({
-            topTeams: data.topTeams || [],
-            topLeagues: data.topLeagues || [],
             favorites: data.favorites || emptySidebarData.favorites,
           });
         }
@@ -130,8 +126,8 @@ export default function Sidebar() {
     };
   }, [authLoading, user?.user_id]);
 
-  const topTeams = sidebarData.topTeams.map((team) => ({
-    key: `top-team-${team.team_id}`,
+  const favTeams = (sidebarData.favorites.teams || []).map((team) => ({
+    key: `fav-team-${team.team_id}`,
     href: `/teams/${team.slug || team.team_id}`,
     label: team.name,
     image: team.logo_url,
@@ -139,64 +135,63 @@ export default function Sidebar() {
     meta: team.short_name || "Team",
   }));
 
-  const topLeagues = sidebarData.topLeagues.map((league) => ({
-    key: `top-league-${league.league_id}`,
+  const favLeagues = (sidebarData.favorites.leagues || []).map((league) => ({
+    key: `fav-league-${league.league_id}`,
     href: `/leagues/${league.slug || league.league_id}`,
     label: league.name,
     image: league.logo_url,
     type: "league",
-    meta: league.country || "Competition",
+    meta: league.country || "League",
   }));
 
-  const favoriteItems = [
-    ...(sidebarData.favorites.teams || []).map((team) => ({
-      key: `favorite-team-${team.team_id}`,
-      href: `/teams/${team.slug || team.team_id}`,
-      label: team.name,
-      image: team.logo_url,
-      type: "team",
-      meta: "Team",
-    })),
-    ...(sidebarData.favorites.leagues || []).map((league) => ({
-      key: `favorite-league-${league.league_id}`,
-      href: `/leagues/${league.slug || league.league_id}`,
-      label: league.name,
-      image: league.logo_url,
-      type: "league",
-      meta: "League",
-    })),
-    ...(sidebarData.favorites.players || []).map((player) => ({
-      key: `favorite-player-${player.player_id}`,
-      href: `/players/${player.player_id}`,
-      label: player.name,
-      image: player.photo_url,
-      type: "player",
-      meta: "Player",
-    })),
-  ];
-
-  const favoritesEmptyState = user ? (
+  const favTeamsEmptyState = user ? (
     <Link
-      href="/favorites"
+      href="/teams"
       className="sidebar-empty-link"
-      title={isCollapsed ? "Add favourites" : undefined}
+      title={isCollapsed ? "Add favorite teams" : undefined}
     >
       <span className="sidebar-empty-icon"><Icon name="star" /></span>
       <span className="sidebar-link-copy">
-        <span className="sidebar-link-label">Add favourites</span>
-        <small>Your saved items appear here</small>
+        <span className="sidebar-link-label">No fav teams yet</span>
+        <small>Explore & star teams</small>
       </span>
     </Link>
   ) : (
     <Link
       href="/login"
       className="sidebar-empty-link"
-      title={isCollapsed ? "Sign in for favourites" : undefined}
+      title={isCollapsed ? "Sign in for fav teams" : undefined}
     >
       <span className="sidebar-empty-icon"><Icon name="user" /></span>
       <span className="sidebar-link-copy">
-        <span className="sidebar-link-label">Sign in for favourites</span>
-        <small>Teams, leagues and players</small>
+        <span className="sidebar-link-label">Sign in</span>
+        <small>Save your favorite teams</small>
+      </span>
+    </Link>
+  );
+
+  const favLeaguesEmptyState = user ? (
+    <Link
+      href="/leagues"
+      className="sidebar-empty-link"
+      title={isCollapsed ? "Add favorite leagues" : undefined}
+    >
+      <span className="sidebar-empty-icon"><Icon name="star" /></span>
+      <span className="sidebar-link-copy">
+        <span className="sidebar-link-label">No fav leagues yet</span>
+        <small>Explore & star leagues</small>
+      </span>
+    </Link>
+  ) : (
+    <Link
+      href="/login"
+      className="sidebar-empty-link"
+      title={isCollapsed ? "Sign in for fav leagues" : undefined}
+    >
+      <span className="sidebar-empty-icon"><Icon name="user" /></span>
+      <span className="sidebar-link-copy">
+        <span className="sidebar-link-label">Sign in</span>
+        <small>Save your favorite leagues</small>
       </span>
     </Link>
   );
@@ -207,7 +202,7 @@ export default function Sidebar() {
       aria-busy={isLoading}
     >
       <div className="sidebar-controls">
-        <span className="sidebar-controls-label">Explore</span>
+        <span className="sidebar-controls-label">Favorites</span>
         <button
           className="sidebar-toggle"
           type="button"
@@ -225,13 +220,17 @@ export default function Sidebar() {
           <SidebarLoading />
         ) : (
           <>
-            <SidebarGroup title="Top Teams" items={topTeams} isCollapsed={isCollapsed} />
-            <SidebarGroup title="Top Leagues" items={topLeagues} isCollapsed={isCollapsed} />
             <SidebarGroup
-              title="Favourites"
-              items={favoriteItems}
+              title="Fav Teams"
+              items={favTeams}
               isCollapsed={isCollapsed}
-              emptyState={favoritesEmptyState}
+              emptyState={favTeamsEmptyState}
+            />
+            <SidebarGroup
+              title="Fav Leagues"
+              items={favLeagues}
+              isCollapsed={isCollapsed}
+              emptyState={favLeaguesEmptyState}
             />
           </>
         )}

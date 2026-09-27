@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Icon from "./Icon";
 import LocalKickoffTime from "./LocalKickoffTime";
@@ -114,6 +114,13 @@ export default function TeamTabs({
           onClick={() => setActiveTab("statistics")}
         >
           Statistics
+        </button>
+
+        <button
+          className={activeTab === "news" ? "active-tab" : ""}
+          onClick={() => setActiveTab("news")}
+        >
+          News
         </button>
       </div>
 
@@ -258,7 +265,103 @@ export default function TeamTabs({
           </div>
         </section>
       )}
+
+      {/* NEWS */}
+      {activeTab === "news" && (
+        <TeamNewsTab teamName={team.name} />
+      )}
     </>
+  );
+}
+
+function TeamNewsTab({ teamName }) {
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadNews = async (forceRefresh = false) => {
+    try {
+      if (forceRefresh) setRefreshing(true);
+      else setLoading(true);
+      const url = `/api/news?category=${encodeURIComponent(teamName || "")}&limit=18${forceRefresh ? "&forceRefresh=true" : ""}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.news && Array.isArray(data.news)) {
+          setNews(data.news);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load team news:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (teamName) loadNews();
+  }, [teamName]);
+
+  return (
+    <section className="team-section">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+        <TeamSectionHeading
+          title={`${teamName} News & Updates`}
+          description={`Latest headlines and transfer stories for ${teamName}.`}
+        />
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => loadNews(true)}
+          disabled={loading || refreshing}
+          style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 14px", fontSize: "13px" }}
+        >
+          <span style={{ display: "inline-block", transform: refreshing ? "rotate(180deg)" : "none", transition: "transform 300ms ease" }}>
+            <Icon name="refresh" />
+          </span>
+          {refreshing ? "Refreshing..." : "Refresh News"}
+        </button>
+      </div>
+
+      {loading && news.length === 0 ? (
+        <p style={{ color: "var(--muted)", padding: "24px 0" }}>Loading latest {teamName} articles...</p>
+      ) : news.length === 0 ? (
+        <p className="empty-message">No recent articles found for {teamName}.</p>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: "16px" }}>
+          {news.map((item) => (
+            <article key={item.id} className="news-card" style={{ background: "var(--surface)", borderRadius: "12px", border: "1px solid var(--border)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              {item.image && (
+                <img
+                  src={item.image}
+                  alt=""
+                  style={{ width: "100%", height: "160px", objectFit: "cover" }}
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                />
+              )}
+              <div style={{ padding: "14px", display: "flex", flexDirection: "column", flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)", marginBottom: "8px" }}>
+                  <span style={{ color: "var(--mint)", fontWeight: "700" }}>{item.category}</span>
+                  <span>{item.time}</span>
+                </div>
+                <h3 style={{ margin: "0 0 8px", fontSize: "14.5px", lineHeight: "1.4", color: "var(--foreground)" }}>{item.title}</h3>
+                {item.description && (
+                  <p style={{ margin: "0 0 12px", fontSize: "12.5px", color: "var(--muted)", lineHeight: "1.4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {item.description}
+                  </p>
+                )}
+                {item.url && (
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ marginTop: "auto", fontSize: "12.5px", fontWeight: "700", color: "var(--mint)", textDecoration: "none" }}>
+                    Read Full Story ↗
+                  </a>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -15,6 +15,7 @@ export async function GET(request) {
       players: [],
       leagues: [],
       matches: [],
+      news: [],
     };
 
     if (!type || type === 'teams') {
@@ -100,6 +101,24 @@ export async function GET(request) {
         [term, limit]
       );
       results.matches = matchesRes.rows;
+    }
+
+    if (!type || type === 'news') {
+      const newsRes = await pool.query(
+        `SELECT 
+           news_id as id,
+           headline as title,
+           category,
+           url,
+           image_url,
+           published_at
+         FROM news
+         WHERE LOWER(headline) LIKE $1 OR LOWER(COALESCE(category, '')) LIKE $1 OR LOWER(COALESCE(content, '')) LIKE $1
+         ORDER BY published_at DESC
+         LIMIT $2`,
+        [term, limit]
+      );
+      results.news = newsRes.rows;
     }
 
     return NextResponse.json({

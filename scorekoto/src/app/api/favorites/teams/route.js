@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '../../../lib/db';
+import pool, { withTransaction } from '../../../lib/db';
 import { getUserFromRequest } from '../../../lib/auth';
 
 // Helper to resolve team_id from ID, name, or slug
@@ -96,7 +96,10 @@ export async function POST(request) {
       VALUES ($1, $2)
       ON CONFLICT (user_id, team_id) DO NOTHING;
     `;
-    await pool.query(insertQuery, [user.user_id, targetTeamId]);
+    // Explicit transaction control: COMMIT & ROLLBACK
+    await withTransaction(async (client) => {
+      await client.query(insertQuery, [user.user_id, targetTeamId]);
+    });
 
     return NextResponse.json({
       success: true,
@@ -163,7 +166,10 @@ export async function DELETE(request) {
       DELETE FROM user_favorite_team
       WHERE user_id = $1 AND team_id = $2;
     `;
-    await pool.query(deleteQuery, [user.user_id, targetTeamId]);
+    // Explicit transaction control: COMMIT & ROLLBACK
+    await withTransaction(async (client) => {
+      await client.query(deleteQuery, [user.user_id, targetTeamId]);
+    });
 
     return NextResponse.json({
       success: true, 

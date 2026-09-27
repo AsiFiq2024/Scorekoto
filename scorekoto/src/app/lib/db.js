@@ -23,4 +23,23 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000,
 });
 
+export async function withTransaction(callback) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('Error during transaction ROLLBACK:', rollbackErr);
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export default pool;

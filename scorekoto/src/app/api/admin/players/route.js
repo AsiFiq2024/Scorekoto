@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/app/lib/db';
+import pool, { withTransaction } from '@/app/lib/db';
 import { getAdminFromRequest } from '@/app/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -72,19 +72,21 @@ export async function POST(request) {
       RETURNING *;
     `;
 
-    const result = await pool.query(insertQuery, [
-      cleanFirstName,
-      cleanLastName,
-      validTeamId,
-      cleanPosition,
-      cleanNationality,
-      cleanDob || null,
-      cleanMarketValue,
-      cleanWeight,
-      cleanPhoto,
-    ]);
-
-    const createdPlayer = result.rows[0];
+    // Explicit transaction control: COMMIT & ROLLBACK
+    const createdPlayer = await withTransaction(async (client) => {
+      const result = await client.query(insertQuery, [
+        cleanFirstName,
+        cleanLastName,
+        validTeamId,
+        cleanPosition,
+        cleanNationality,
+        cleanDob || null,
+        cleanMarketValue,
+        cleanWeight,
+        cleanPhoto,
+      ]);
+      return result.rows[0];
+    });
 
     // Fetch team name if assigned
     let teamName = null;

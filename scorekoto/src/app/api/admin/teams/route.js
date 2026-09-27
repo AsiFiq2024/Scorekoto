@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/app/lib/db';
+import pool, { withTransaction } from '@/app/lib/db';
 import { getAdminFromRequest } from '@/app/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -45,20 +45,24 @@ export async function POST(request) {
       RETURNING *;
     `;
 
-    const result = await pool.query(insertQuery, [
-      cleanName,
-      cleanShortName,
-      cleanStadium,
-      cleanManager,
-      cleanHistory,
-      cleanLogo,
-    ]);
+    // Explicit transaction control: COMMIT & ROLLBACK
+    const createdTeam = await withTransaction(async (client) => {
+      const result = await client.query(insertQuery, [
+        cleanName,
+        cleanShortName,
+        cleanStadium,
+        cleanManager,
+        cleanHistory,
+        cleanLogo,
+      ]);
+      return result.rows[0];
+    });
 
     return NextResponse.json(
       {
         success: true,
         message: 'Team created successfully in database',
-        team: result.rows[0],
+        team: createdTeam,
       },
       { status: 201 }
     );

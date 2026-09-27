@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/app/lib/db';
+import pool, { withTransaction } from '@/app/lib/db';
 import { getUserFromRequest } from '@/app/lib/auth';
 
 // Helper to resolve player_id from ID, name, or slug
@@ -125,12 +125,15 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Player not found in database' }, { status: 404 });
     }
 
-    await pool.query(
-      `INSERT INTO user_favorite_player (user_id, player_id) 
-       VALUES ($1, $2) 
-       ON CONFLICT (user_id, player_id) DO NOTHING`,
-      [user.user_id, targetPlayerId]
-    );
+    // Explicit transaction control: COMMIT & ROLLBACK
+    await withTransaction(async (client) => {
+      await client.query(
+        `INSERT INTO user_favorite_player (user_id, player_id) 
+         VALUES ($1, $2) 
+         ON CONFLICT (user_id, player_id) DO NOTHING`,
+        [user.user_id, targetPlayerId]
+      );
+    });
 
     return NextResponse.json({
       success: true,
@@ -160,10 +163,13 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 });
     }
 
-    await pool.query(
-      `DELETE FROM user_favorite_player WHERE user_id = $1 AND player_id = $2`,
-      [user.user_id, targetPlayerId]
-    );
+    // Explicit transaction control: COMMIT & ROLLBACK
+    await withTransaction(async (client) => {
+      await client.query(
+        `DELETE FROM user_favorite_player WHERE user_id = $1 AND player_id = $2`,
+        [user.user_id, targetPlayerId]
+      );
+    });
 
     return NextResponse.json({
       success: true,

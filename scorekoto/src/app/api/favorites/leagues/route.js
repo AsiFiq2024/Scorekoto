@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/app/lib/db';
+import pool, { withTransaction } from '@/app/lib/db';
 import { getUserFromRequest } from '@/app/lib/auth';
 
 // Helper to resolve league_id from ID, name, or slug
@@ -111,12 +111,15 @@ export async function POST(request) {
       return NextResponse.json({ error: 'League not found in database' }, { status: 404 });
     }
 
-    await pool.query(
-      `INSERT INTO user_favorite_league (user_id, league_id) 
-       VALUES ($1, $2) 
-       ON CONFLICT (user_id, league_id) DO NOTHING`,
-      [user.user_id, targetLeagueId]
-    );
+    // Explicit transaction control: COMMIT & ROLLBACK
+    await withTransaction(async (client) => {
+      await client.query(
+        `INSERT INTO user_favorite_league (user_id, league_id) 
+         VALUES ($1, $2) 
+         ON CONFLICT (user_id, league_id) DO NOTHING`,
+        [user.user_id, targetLeagueId]
+      );
+    });
 
     return NextResponse.json({
       success: true,
@@ -146,10 +149,13 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'League not found' }, { status: 404 });
     }
 
-    await pool.query(
-      `DELETE FROM user_favorite_league WHERE user_id = $1 AND league_id = $2`,
-      [user.user_id, targetLeagueId]
-    );
+    // Explicit transaction control: COMMIT & ROLLBACK
+    await withTransaction(async (client) => {
+      await client.query(
+        `DELETE FROM user_favorite_league WHERE user_id = $1 AND league_id = $2`,
+        [user.user_id, targetLeagueId]
+      );
+    });
 
     return NextResponse.json({
       success: true,
