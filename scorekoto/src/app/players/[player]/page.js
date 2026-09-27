@@ -232,7 +232,7 @@ async function getPlayerDataFromDb(playerSlugOrId) {
       `SELECT * FROM fn_get_player_career_summary($1)`,
       [row.id]
     );
-    player.careerSummary = careerRes.rows[0] || null;
+    formattedPlayer.careerSummary = careerRes.rows[0] || null;
 
     const hasInternationalCompetition = teamCompetitions.some((item) =>
       INTERNATIONAL_LEAGUE_IDS.has(Number(item.id))
