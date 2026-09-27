@@ -118,15 +118,28 @@ async function getPlayerDataFromDb(playerSlugOrId) {
       query = `${selectPlayer} WHERE p.player_id = $1 LIMIT 1`;
       params = [Number(decoded)];
     } else {
+      const cleanParam = decoded.replace(/-/g, ' ');
+      const words = cleanParam.split(/\s+/).filter(Boolean);
+      const lastName = words[words.length - 1] || '';
+      const firstName = words[0] || '';
+
       query = `${selectPlayer}
         WHERE LOWER(REPLACE(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), '')), ' ', '-')) = $1
            OR LOWER(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), ''))) = $1
            OR LOWER(p.last_name) = $1
+           OR (LOWER(p.last_name) = $2 AND (LOWER(p.first_name) LIKE $3 OR LOWER(p.first_name) LIKE SUBSTRING($3 FROM 1 FOR 1) || '%'))
+           OR (LOWER(CONCAT_WS(' ', p.first_name, p.last_name)) ILIKE '%' || $2 || '%')
         ORDER BY
-          CASE WHEN LOWER(REPLACE(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), '')), ' ', '-')) = $1 THEN 0 ELSE 1 END,
+          CASE 
+            WHEN LOWER(REPLACE(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), '')), ' ', '-')) = $1 THEN 0 
+            WHEN LOWER(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), ''))) = $1 THEN 1
+            WHEN LOWER(p.last_name) = $1 THEN 2
+            WHEN LOWER(p.last_name) = $2 THEN 3
+            ELSE 4
+          END,
           p.player_id
         LIMIT 1`;
-      params = [decoded];
+      params = [decoded, lastName, firstName + '%'];
     }
 
     const res = await pool.query(query, params);

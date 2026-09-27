@@ -10681,7 +10681,53 @@ textarea {
 }
 
 .stats-page-header {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+}
+
+.stats-league-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 22px;
+  scrollbar-width: thin;
+}
+
+.stats-league-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.stats-league-pill:hover {
+  border-color: var(--mint);
+  color: var(--foreground);
+}
+
+.stats-league-pill.active {
+  background: var(--mint);
+  color: #03130a;
+  border-color: var(--mint);
+  box-shadow: 0 2px 10px rgba(105, 245, 189, 0.2);
+}
+
+.stats-league-pill-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .stats-controls {
