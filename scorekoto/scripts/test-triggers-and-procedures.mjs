@@ -1,7 +1,24 @@
 import { Pool } from 'pg';
+import fs from 'fs';
+import path from 'path';
+
+let connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  try {
+    const envFile = fs.readFileSync(path.resolve('.env.local'), 'utf8');
+    for (const line of envFile.split('\n')) {
+      if (line.startsWith('DATABASE_URL=')) {
+        connectionString = line.substring('DATABASE_URL='.length).trim().replace(/^"|"$/g, '');
+        break;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+}
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   ssl: { rejectUnauthorized: false },
 });
 
@@ -81,6 +98,7 @@ async function run() {
   console.log(`Match remaining count: ${checkMatch.rows.length}, Comments remaining count: ${checkComment.rows.length}`);
 
   console.log('\n--- 4. TESTING PROCEDURE: sp_transfer_player ---');
+  await pool.query(`DELETE FROM player WHERE first_name = 'Transfer' AND last_name = 'Target'`);
   const dummyPlayer = await pool.query(`
     INSERT INTO player (first_name, last_name, team_id, market_value_euros)
     VALUES ('Transfer', 'Target', (SELECT team_id FROM team ORDER BY team_id ASC LIMIT 1), 10000000)
@@ -100,6 +118,29 @@ async function run() {
 
   // Clean up
   await pool.query(`DELETE FROM player WHERE player_id = $1`, [transferPlayerId]);
+
+  console.log('\n--- 5. TESTING TRIGGER: Duplicate Player Prevention (trg_prevent_duplicate_player) ---');
+  const dupTestFirst = await pool.query(`
+    INSERT INTO player (first_name, last_name, team_id, primary_position)
+    VALUES ('Trigger', 'DuplicateTest', 50, 'Midfielder')
+    RETURNING player_id;
+  `);
+  const dupFirstId = dupTestFirst.rows[0].player_id;
+  console.log(`Created primary test player #${dupFirstId}`);
+
+  try {
+    await pool.query(`
+      INSERT INTO player (first_name, last_name, team_id, primary_position)
+      VALUES ('Trigger', 'DuplicateTest', 50, 'Midfielder');
+    `);
+    console.error('❌ Error: Trigger failed to prevent duplicate player insertion!');
+  } catch (dupErr) {
+    console.log(`✅ Success: Duplicate Prevention Trigger blocked duplicate player: "${dupErr.message}"`);
+  }
+
+  // Clean up test player
+  await pool.query(`DELETE FROM player WHERE player_id = $1`, [dupFirstId]);
+  console.log(`Cleaned up test player #${dupFirstId}.`);
 
   await pool.end();
 }

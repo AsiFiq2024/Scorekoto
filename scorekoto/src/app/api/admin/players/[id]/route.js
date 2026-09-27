@@ -97,9 +97,10 @@ export async function PUT(request, { params }) {
     });
   } catch (err) {
     console.error('Error updating player:', err);
+    const isDuplicate = err.message && (err.message.includes('Player already exists') || err.code === '23505');
     return NextResponse.json(
-      { error: 'Failed to update player attributes' },
-      { status: 500 }
+      { error: err.message || 'Failed to update player attributes' },
+      { status: isDuplicate ? 409 : 500 }
     );
   }
 }
