@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Icon from "./Icon";
 import LocalKickoffTime from "./LocalKickoffTime";
+import { TeamCompareView } from "./TeamCompareModal";
 
 export default function TeamTabs({
   team = {},
@@ -121,6 +122,13 @@ export default function TeamTabs({
           onClick={() => setActiveTab("news")}
         >
           News
+        </button>
+
+        <button
+          className={activeTab === "compare" ? "active-tab" : ""}
+          onClick={() => setActiveTab("compare")}
+        >
+          Compare
         </button>
       </div>
 
@@ -269,6 +277,17 @@ export default function TeamTabs({
       {/* NEWS */}
       {activeTab === "news" && (
         <TeamNewsTab teamName={team.name} />
+      )}
+
+      {/* COMPARE */}
+      {activeTab === "compare" && (
+        <section className="team-section">
+          <TeamSectionHeading
+            title={`${team.name} Comparison & Head-to-Head`}
+            description="Direct match encounters, side-by-side league standings, and top scorer leaderboards."
+          />
+          <TeamCompareView currentTeam={team} />
+        </section>
       )}
     </>
   );

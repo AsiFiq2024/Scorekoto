@@ -1,6 +1,7 @@
 import pool from "@/app/lib/db";
 import TeamTabs from "@/components/TeamTabs";
 import FavoriteButton from "@/components/FavoriteButton";
+import { TeamCompareButton } from "@/components/TeamCompareModal";
 import { getTeamManagerName } from "@/app/lib/team-manager";
 import { getTeamSquad } from "@/app/lib/team-squad";
 import Link from "next/link";
@@ -238,10 +239,13 @@ export default async function TeamPage({ params }) {
           </p>
         </div>
 
-        <FavoriteButton
-          type="teams"
-          id={teamData.slug || String(teamData.id)}
-        />
+        <div className="team-header-actions">
+          <TeamCompareButton team={teamData} />
+          <FavoriteButton
+            type="teams"
+            id={teamData.slug || String(teamData.id)}
+          />
+        </div>
       </section>
 
       <TeamTabs

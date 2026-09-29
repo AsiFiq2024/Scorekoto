@@ -33,10 +33,6 @@ export default function AdminPage() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
 
-  // Analytics / Complex Queries State (Checkpoint 7)
-  const [analyticsData, setAnalyticsData] = useState(null);
-  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
-
   // Options for dropdowns (teams, seasons)
   const [options, setOptions] = useState({ teams: [], seasons: [] });
 
@@ -195,33 +191,13 @@ export default function AdminPage() {
     }
   }, [isAdmin]);
 
-  const fetchAnalytics = useCallback(async () => {
-    if (!isAdmin) return;
-    try {
-      setLoadingAnalytics(true);
-      const res = await fetch(`/api/analytics?t=${Date.now()}`, {
-        cache: "no-store",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAnalyticsData(data.queries || null);
-      }
-    } catch (err) {
-      console.error("Failed to load analytics queries:", err);
-    } finally {
-      setLoadingAnalytics(false);
-    }
-  }, [isAdmin]);
-
   useEffect(() => {
     if (activeTab === "audit") {
       fetchAuditLogs();
-    } else if (activeTab === "analytics") {
-      fetchAnalytics();
     } else {
       fetchItems();
     }
-  }, [activeTab, fetchItems, fetchAuditLogs, fetchAnalytics]);
+  }, [activeTab, fetchItems, fetchAuditLogs]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -462,17 +438,6 @@ export default function AdminPage() {
         >
           <Icon name="shield" /> Audit Trail
         </button>
-
-        <button
-          className={`admin-tab-btn ${activeTab === "analytics" ? "active" : ""}`}
-          onClick={() => {
-            setActiveTab("analytics");
-            setIsCreating(false);
-            setSelectedItem(null);
-          }}
-        >
-          <Icon name="bolt" /> Complex Queries
-        </button>
       </div>
 
       {/* AUDIT LOGS VIEW */}
@@ -531,167 +496,6 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* COMPLEX QUERIES / ANALYTICS VIEW (CHECKPOINT 7) */}
-      {activeTab === "analytics" && (
-        <section className="admin-special-card">
-          <div className="admin-special-header">
-            <div>
-              <h2><Icon name="bolt" /> Database Analytics & Complex Queries</h2>
-              <p>Live execution of multi-table joins, window functions (DENSE_RANK), aggregations with HAVING, and PL/pgSQL function calls (Checkpoint 7).</p>
-            </div>
-            <button
-              type="button"
-              onClick={fetchAnalytics}
-              disabled={loadingAnalytics}
-              className="admin-refresh-btn"
-            >
-              <Icon name="refresh" /> {loadingAnalytics ? "Executing Queries..." : "Re-run Queries"}
-            </button>
-          </div>
-
-          {loadingAnalytics ? (
-            <p className="admin-items-loading">Executing complex queries across PostgreSQL tables...</p>
-          ) : !analyticsData ? (
-            <p className="admin-items-empty">No analytics data returned.</p>
-          ) : (
-            <div className="admin-analytics-grid">
-              {/* Complex Query 1: League Standings & Form Analytics */}
-              <div className="admin-analytics-box">
-                <div className="admin-analytics-box-header">
-                  <h3>1. League Standings & Form Analytics</h3>
-                  <span className="admin-sql-badge">4 Tables Joined • DENSE_RANK() • 2 Stored Functions</span>
-                </div>
-                <p className="admin-sql-desc">
-                  Demonstrates <code>DENSE_RANK() OVER (PARTITION BY s.season_id ORDER BY points DESC, gd DESC)</code> across <code>team_season_stats</code>, <code>team</code>, <code>season</code>, and <code>league</code>, dynamically invoking <code>fn_calculate_team_win_rate()</code> and <code>fn_get_team_recent_form()</code>.
-                </p>
-                <div className="admin-audit-table-wrapper">
-                  <table className="admin-audit-table">
-                    <thead>
-                      <tr>
-                        <th>Rank</th>
-                        <th>Team</th>
-                        <th>League</th>
-                        <th>Season</th>
-                        <th>P</th>
-                        <th>W</th>
-                        <th>D</th>
-                        <th>L</th>
-                        <th>GD</th>
-                        <th>Pts</th>
-                        <th>Win Rate</th>
-                        <th>Recent Form</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(analyticsData.leagueStandings || []).map((row, idx) => (
-                        <tr key={`standings-${idx}`}>
-                          <td><strong>#{row.rank}</strong></td>
-                          <td><strong>{row.team_name}</strong></td>
-                          <td>{row.league_name}</td>
-                          <td>{row.season_year}</td>
-                          <td>{row.wins + row.draws + row.losses}</td>
-                          <td>{row.wins}</td>
-                          <td>{row.draws}</td>
-                          <td>{row.losses}</td>
-                          <td>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</td>
-                          <td><strong>{row.points}</strong></td>
-                          <td><span className="admin-winrate-pill">{row.win_rate}%</span></td>
-                          <td><code>{row.form || "—"}</code></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Complex Query 2: Top Scorers / Goal Contributors */}
-              <div className="admin-analytics-box">
-                <div className="admin-analytics-box-header">
-                  <h3>2. Top Scorers & Attack Contributions Leaderboard</h3>
-                  <span className="admin-sql-badge">3 Tables Joined • GROUP BY • HAVING Filter</span>
-                </div>
-                <p className="admin-sql-desc">
-                  Multi-column aggregations across <code>player</code>, <code>player_season_stats</code>, and <code>team</code> using <code>SUM(goals)</code>, <code>SUM(assists)</code>, and <code>AVG(minutes_played)</code>, filtered by <code>HAVING SUM(pss.goals + pss.assists) &gt; 0</code>.
-                </p>
-                <div className="admin-audit-table-wrapper">
-                  <table className="admin-audit-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Player</th>
-                        <th>Position</th>
-                        <th>Team</th>
-                        <th>Appearances</th>
-                        <th>Goals</th>
-                        <th>Assists</th>
-                        <th>Total Contributions</th>
-                        <th>Avg Mins</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(analyticsData.topContributors || []).map((row, idx) => (
-                        <tr key={`contributor-${idx}`}>
-                          <td><strong>#{idx + 1}</strong></td>
-                          <td><strong>{row.player_name}</strong></td>
-                          <td><span className="admin-table-pill">{row.primary_position || "Player"}</span></td>
-                          <td>{row.team_name || "—"}</td>
-                          <td>{row.appearances}</td>
-                          <td><strong style={{ color: "var(--mint)" }}>{row.total_goals}</strong></td>
-                          <td>{row.total_assists}</td>
-                          <td><strong>{row.total_contributions} G+A</strong></td>
-                          <td>{row.avg_minutes ? `${row.avg_minutes}'` : "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Complex Query 3: Team Rivalry & Head-to-Head Statistics */}
-              <div className="admin-analytics-box">
-                <div className="admin-analytics-box-header">
-                  <h3>3. Major Derby Rivalries & Head-to-Head Statistics</h3>
-                  <span className="admin-sql-badge">Multi-table Self-Join • CASE WHEN Pivot • HAVING</span>
-                </div>
-                <p className="admin-sql-desc">
-                  Self-joins <code>match</code> with <code>team ht</code> and <code>team at</code>, using conditional aggregations <code>COUNT(CASE WHEN ... THEN 1 END)</code> to pivot results and <code>HAVING COUNT(m.match_id) &gt;= 2</code> to filter major derbies.
-                </p>
-                <div className="admin-audit-table-wrapper">
-                  <table className="admin-audit-table">
-                    <thead>
-                      <tr>
-                        <th>Rivalry Fixture</th>
-                        <th>Encounters</th>
-                        <th>Home Wins</th>
-                        <th>Draws</th>
-                        <th>Away Wins</th>
-                        <th>Home Goals</th>
-                        <th>Away Goals</th>
-                        <th>Avg Home Poss.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(analyticsData.headToHeadRivalries || []).map((row, idx) => (
-                        <tr key={`rivalry-${idx}`}>
-                          <td><strong>{row.home_team} vs {row.away_team}</strong></td>
-                          <td><strong>{row.encounters} matches</strong></td>
-                          <td><span style={{ color: "var(--mint)" }}>{row.home_wins}</span></td>
-                          <td>{row.draws}</td>
-                          <td><span style={{ color: "#f87171" }}>{row.away_wins}</span></td>
-                          <td>{row.home_goals}</td>
-                          <td>{row.away_goals}</td>
-                          <td>{row.avg_home_possession}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </div>
           )}
         </section>

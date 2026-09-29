@@ -272,7 +272,12 @@ export default function LeagueTabs({
             {activeTab === "scorers" && (
                 <section className="league-section">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
-                        <h2>Top Scorers</h2>
+                        <div>
+                            <h2>Top Scorers</h2>
+                            <p style={{ color: "var(--muted)", fontSize: "12.5px", margin: "4px 0 0" }}>
+                                Attacking leaders ranked by goals &amp; assists
+                            </p>
+                        </div>
                         <SeasonSelector
                             availableSeasons={availableSeasons}
                             selectedSeason={selectedSeason}
@@ -283,31 +288,73 @@ export default function LeagueTabs({
                     {topScorers.length === 0 ? (
                         <p>No top-scorer data is available for this season.</p>
                     ) : (
-                        <div className="top-scorer-list">
-                            {topScorers.map((scorer, index) => (
-                                <div
-                                    key={`${scorer.player}-${scorer.team}`}
-                                    className="top-scorer-row"
-                                >
-                                    <span className="scorer-position">
-                                        {index + 1}
-                                    </span>
+                        <>
+                            <div className="top-scorer-list">
+                                {topScorers.map((scorer, index) => {
+                                    const contributions = scorer.contributions ?? (Number(scorer.goals || 0) + Number(scorer.assists || 0));
+                                    return (
+                                        <div
+                                            key={`${scorer.playerId || scorer.player}-${scorer.team}`}
+                                            className="top-scorer-row"
+                                        >
+                                            <span className={`scorer-position ${index === 0 ? "podium-1" : index === 1 ? "podium-2" : index === 2 ? "podium-3" : ""}`}>
+                                                {index + 1}
+                                            </span>
 
-                                    <div className="scorer-player">
-                                        <strong>{scorer.player}</strong>
-                                        <span>
-                                            {scorer.team}
-                                            {scorer.appearances ? ` · ${scorer.appearances} apps` : ""}
-                                            {scorer.assists ? ` · ${scorer.assists} assists` : ""}
-                                        </span>
-                                    </div>
+                                            <div className="scorer-player-avatar">
+                                                {scorer.photo ? (
+                                                    <img
+                                                        src={scorer.photo}
+                                                        alt={scorer.player}
+                                                        className="scorer-photo-img"
+                                                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                                    />
+                                                ) : (
+                                                    <span className="scorer-initials">
+                                                        {scorer.player ? scorer.player.charAt(0) : "P"}
+                                                    </span>
+                                                )}
+                                            </div>
 
-                                    <strong className="scorer-goals">
-                                        {scorer.goals} {scorer.goals === 1 ? "goal" : "goals"}
-                                    </strong>
-                                </div>
-                            ))}
-                        </div>
+                                            <div className="scorer-player">
+                                                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                                    <strong>{scorer.player}</strong>
+                                                    {scorer.position && (
+                                                        <span className="scorer-pos-pill">{scorer.position}</span>
+                                                    )}
+                                                </div>
+                                                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                                    {scorer.teamLogo && (
+                                                        <img
+                                                            src={scorer.teamLogo}
+                                                            alt=""
+                                                            style={{ width: "14px", height: "14px", objectFit: "contain" }}
+                                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                                        />
+                                                    )}
+                                                    {scorer.team}
+                                                    {scorer.appearances ? ` · ${scorer.appearances} apps` : ""}
+                                                    {scorer.assists !== undefined && scorer.assists !== null ? ` · ${scorer.assists} ast` : ""}
+                                                </span>
+                                            </div>
+
+                                            <div className="scorer-stats-badge-group">
+                                                <strong className="scorer-goals">
+                                                    {scorer.goals} {scorer.goals === 1 ? "goal" : "goals"}
+                                                </strong>
+                                                {contributions > 0 && (
+                                                    <span className="scorer-ga-pill">
+                                                        {contributions} G+A
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+
+                        </>
                     )}
                 </section>
             )}
@@ -504,44 +551,83 @@ function LeagueMatchRow({ match }) {
 
 function StandingsTable({ standings }) {
     return (
-        <div className="standings-table">
-            <div className="standing-row standing-header">
-                <span>#</span>
-                <span>Team</span>
-                <span>P</span>
-                <span>GD</span>
-                <span>Pts</span>
-            </div>
+        <div className="standings-table-container">
+            <div className="standings-table rich-standings-table">
+                <div className="standing-row standing-header">
+                    <span>#</span>
+                    <span>Team</span>
+                    <span>P</span>
+                    <span>W</span>
+                    <span>D</span>
+                    <span>L</span>
+                    <span>GD</span>
+                    <span>Pts</span>
+                    <span>Win %</span>
+                    <span>Recent Form</span>
+                </div>
 
-            {standings.map((team) => (
-                <div
-                    key={team.team}
-                    className="standing-row league-standing-row"
-                >
-                    <span>{team.position}</span>
-                    <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        {team.logo && (
-                            <img
-                                src={team.logo}
-                                alt=""
-                                style={{ width: "22px", height: "22px", objectFit: "contain" }}
-                                onError={(e) => { e.currentTarget.style.display = "none"; }}
-                            />
-                        )}
-                        <span style={{ display: "grid", gap: "1px" }}>
-                            <strong>{team.team}</strong>
-                            {team.group && (
-                                <small style={{ color: "var(--muted)", fontSize: "10px" }}>
-                                    {team.group}
-                                </small>
+                {standings.map((team) => (
+                    <div
+                        key={team.teamId || team.team}
+                        className="standing-row league-standing-row"
+                    >
+                        <span className="standing-rank-num">{team.position || team.rank}</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {team.logo && (
+                                <img
+                                    src={team.logo}
+                                    alt=""
+                                    style={{ width: "22px", height: "22px", objectFit: "contain" }}
+                                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                />
+                            )}
+                            <span style={{ display: "grid", gap: "1px" }}>
+                                <Link
+                                    href={`/teams/${team.teamId || team.team.toLowerCase().replaceAll(" ", "-")}`}
+                                    className="standing-team-link"
+                                >
+                                    <strong>{team.team}</strong>
+                                </Link>
+                                {team.group && (
+                                    <small style={{ color: "var(--muted)", fontSize: "10px" }}>
+                                        {team.group}
+                                    </small>
+                                )}
+                            </span>
+                        </span>
+                        <span>{team.played}</span>
+                        <span>{team.wins ?? "—"}</span>
+                        <span>{team.draws ?? "—"}</span>
+                        <span>{team.losses ?? "—"}</span>
+                        <span>{team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference}</span>
+                        <strong className="standing-pts-cell">{team.points}</strong>
+                        <span>
+                            {team.winRate ? (
+                                <span className="standing-winrate-tag">{team.winRate}%</span>
+                            ) : (
+                                "—"
                             )}
                         </span>
-                    </span>
-                    <span>{team.played}</span>
-                    <span>{team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference}</span>
-                    <strong>{team.points}</strong>
-                </div>
-            ))}
+                        <span className="standing-form-badges">
+                            {team.form && team.form !== "N/A" ? (
+                                (team.form.match(/[WDLwdl]/g) || []).map((ch, idx) => (
+                                    <span
+                                        key={idx}
+                                        className={`form-badge-pill form-badge-${ch.toLowerCase()}`}
+                                        title={ch.toUpperCase() === "W" ? "Win" : ch.toUpperCase() === "D" ? "Draw" : "Loss"}
+                                    >
+                                        {ch.toUpperCase()}
+                                    </span>
+                                ))
+                            ) : (
+                                <span style={{ color: "var(--muted)", fontSize: "11px" }}>—</span>
+                            )}
+                        </span>
+                    </div>
+                ))}
+            </div>
+
+
         </div>
     );
 }

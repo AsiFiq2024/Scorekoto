@@ -45,10 +45,10 @@ async function getLeagueDataFromDb(leagueParam, selectedSeasonYear = null) {
     );
 
     const availableSeasons = allSeasonsRes.rows.filter(
-      (season) => season.standings_count > 0 || season.scorers_count > 0
+      (season) => season.standings_count > 0 || season.scorers_count > 0 || season.match_count > 0
     );
 
-    // 2. Determine target season
+    // 2. Determine target season (prefer latest season that actually has standings or matches)
     let targetSeason = null;
     if (selectedSeasonYear) {
       targetSeason = allSeasonsRes.rows.find(
@@ -56,7 +56,10 @@ async function getLeagueDataFromDb(leagueParam, selectedSeasonYear = null) {
       );
     }
     if (!targetSeason) {
-      targetSeason = availableSeasons[0] || allSeasonsRes.rows[0];
+      targetSeason = availableSeasons.find((s) => s.standings_count > 0) ||
+                     availableSeasons.find((s) => s.match_count > 0) ||
+                     availableSeasons[0] ||
+                     allSeasonsRes.rows[0];
     }
 
     const targetSeasonId = targetSeason?.season_id;
@@ -68,40 +71,55 @@ async function getLeagueDataFromDb(leagueParam, selectedSeasonYear = null) {
       ? Number(yearMatch?.[0]) || null
       : null;
 
-    // 3. Query initial standings from PostgreSQL (always available on first run!)
+    // 3. Refresh authentic standings from API if available to ensure team_season_stats is up to date
+    try {
+      await fetchLeagueStandings(
+        league.id,
+        targetSeasonId,
+        seasonStartYear
+      );
+    } catch (e) {
+      console.warn("Could not fetch remote standings:", e);
+    }
+
+    // 4. Query standings using CSE216 Complex Query 1:
+    // DENSE_RANK() OVER (ORDER BY tss.points DESC, (tss.goals_for - tss.goals_against) DESC, tss.goals_for DESC)
+    // with stored PL/pgSQL function calls fn_calculate_team_win_rate() & fn_get_team_recent_form()
     let dbSeasonStandings = [];
     if (targetSeasonId) {
       const tssRes = await pool.query(
         `SELECT 
+           DENSE_RANK() OVER (
+             ORDER BY tss.points DESC, (tss.goals_for - tss.goals_against) DESC, tss.goals_for DESC
+           )::int as rank,
+           t.team_id as "teamId",
            t.name as team,
            t.logo_url as logo,
-           tss.wins,
-           tss.losses,
-           tss.draws,
-           tss.goals_for as "goalsFor",
-           tss.goals_against as "goalsAgainst",
-           (tss.goals_for - tss.goals_against) as "goalDifference",
-           tss.points,
-           tss.matches_played as played
+           tss.wins::int,
+           tss.losses::int,
+           tss.draws::int,
+           tss.goals_for::int as "goalsFor",
+           tss.goals_against::int as "goalsAgainst",
+           (tss.goals_for - tss.goals_against)::int as "goalDifference",
+           tss.points::int,
+           tss.matches_played::int as played,
+           fn_calculate_team_win_rate(t.team_id) as "winRate",
+           fn_get_team_recent_form(t.team_id, 5) as form
          FROM team_season_stats tss
          JOIN team t ON tss.team_id = t.team_id
          WHERE tss.season_id = $1
-         ORDER BY tss.points DESC, (tss.goals_for - tss.goals_against) DESC, tss.goals_for DESC`,
+         ORDER BY rank ASC, tss.points DESC, (tss.goals_for - tss.goals_against) DESC`,
         [targetSeasonId]
       );
       dbSeasonStandings = tssRes.rows;
     }
 
-    // 4. Refresh authentic standings; calculate them from stored results if the feed is unavailable.
-    const refreshedStandings = await fetchLeagueStandings(
-      league.id,
-      targetSeasonId,
-      seasonStartYear
-    );
-    if (refreshedStandings.length > 0) {
-      dbSeasonStandings = refreshedStandings;
-    } else if (dbSeasonStandings.length === 0) {
-      dbSeasonStandings = await calculateStandingsFromMatches(targetSeasonId);
+    if (dbSeasonStandings.length === 0 && targetSeasonId) {
+      const matchStandings = await calculateStandingsFromMatches(targetSeasonId);
+      dbSeasonStandings = matchStandings.map((s, idx) => ({
+        ...s,
+        rank: idx + 1,
+      }));
     }
 
     // 5. Fetch matches for this league
@@ -131,28 +149,9 @@ async function getLeagueDataFromDb(leagueParam, selectedSeasonYear = null) {
     );
     const leagueMatches = matchRes.rows;
 
-    // 6. Fetch top scorers
+    // 6. Refresh top scorers & query using CSE216 Complex Query 2:
+    // Multi-column aggregation, GROUP BY, and HAVING condition
     await ensurePlayerSeasonStatsSchema();
-    const pssRes = targetSeasonId
-      ? await pool.query(
-           `SELECT
-             CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), '')) as player,
-             COALESCE(season_team.name, current_team.name, 'Unassigned') as team,
-             pss.goals::int as goals,
-             pss.assists::int as assists,
-             pss.appearances::int as appearances
-           FROM player_season_stats pss
-           JOIN player p ON pss.player_id = p.player_id
-           LEFT JOIN team season_team ON pss.team_id = season_team.team_id
-           LEFT JOIN team current_team ON p.team_id = current_team.team_id
-           WHERE pss.season_id = $1
-             AND pss.goals > 0
-           ORDER BY goals DESC, assists DESC
-           LIMIT 20`,
-          [targetSeasonId]
-        )
-      : { rows: [] };
-
     const completedStatuses = new Set(["FT", "AET", "PEN"]);
     const teamMatchCounts = new Map();
     for (const match of leagueMatches) {
@@ -168,18 +167,48 @@ async function getLeagueDataFromDb(leagueParam, selectedSeasonYear = null) {
     }
     const maxAppearances = Math.max(0, ...teamMatchCounts.values());
 
-    const refreshedTopScorers = await fetchLeagueTopScorers(
-      league.id,
-      targetSeasonId,
-      seasonStartYear,
-      {
-        maxAppearances,
-        seasonEndDate: targetSeason?.end_date,
-      }
-    );
-    const dbTopScorers = refreshedTopScorers.length > 0
-      ? refreshedTopScorers
-      : pssRes.rows;
+    try {
+      await fetchLeagueTopScorers(
+        league.id,
+        targetSeasonId,
+        seasonStartYear,
+        {
+          maxAppearances,
+          seasonEndDate: targetSeason?.end_date,
+        }
+      );
+    } catch (e) {
+      console.warn("Could not fetch remote top scorers:", e);
+    }
+
+    let dbTopScorers = [];
+    if (targetSeasonId) {
+      const pssRes = await pool.query(
+        `SELECT
+           p.player_id as "playerId",
+           CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), '')) as player,
+           COALESCE(season_team.name, current_team.name, 'Unassigned') as team,
+           COALESCE(season_team.logo_url, current_team.logo_url) as "teamLogo",
+           COALESCE(p.primary_position, 'Player') as position,
+           p.photo_url as photo,
+           SUM(pss.appearances)::int as appearances,
+           SUM(pss.goals)::int as goals,
+           SUM(pss.assists)::int as assists,
+           SUM(pss.goals + pss.assists)::int as contributions,
+           ROUND(AVG(COALESCE(pss.minutes_played, 0)), 0)::int as "avgMinutes"
+         FROM player_season_stats pss
+         JOIN player p ON pss.player_id = p.player_id
+         LEFT JOIN team season_team ON pss.team_id = season_team.team_id
+         LEFT JOIN team current_team ON p.team_id = current_team.team_id
+         WHERE pss.season_id = $1
+         GROUP BY p.player_id, p.first_name, p.last_name, season_team.name, current_team.name, season_team.logo_url, current_team.logo_url, p.primary_position, p.photo_url
+         HAVING SUM(pss.goals + pss.assists) > 0
+         ORDER BY goals DESC, assists DESC, appearances ASC
+         LIMIT 30`,
+        [targetSeasonId]
+      );
+      dbTopScorers = pssRes.rows;
+    }
 
     // 7. Collect distinct teams
     const teamMap = new Map();
