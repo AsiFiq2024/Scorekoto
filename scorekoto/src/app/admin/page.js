@@ -177,7 +177,9 @@ export default function AdminPage() {
     if (!isAdmin) return;
     try {
       setLoadingAudit(true);
-      const res = await fetch("/api/admin/audit-logs");
+      const res = await fetch(`/api/admin/audit-logs?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setAuditLogs(data.logs || []);
@@ -268,6 +270,9 @@ export default function AdminPage() {
           if (activeTab === "teams") {
             loadOptions();
           }
+
+          // Automatically refresh audit logs
+          fetchAuditLogs();
         }
       }
     } catch (err) {
@@ -323,6 +328,9 @@ export default function AdminPage() {
         if (activeTab === "teams") {
           loadOptions();
         }
+
+        // Automatically refresh audit logs
+        fetchAuditLogs();
       }
     } catch (err) {
       console.error("Error deleting item:", err);
@@ -460,7 +468,7 @@ export default function AdminPage() {
                 <thead>
                   <tr>
                     <th>Log ID</th>
-                    <th>Timestamp</th>
+                    <th>Timestamp (BST)</th>
                     <th>Table</th>
                     <th>Operation</th>
                     <th>Record ID</th>
@@ -471,7 +479,7 @@ export default function AdminPage() {
                   {auditLogs.map((log) => (
                     <tr key={`log-${log.log_id}`}>
                       <td><strong>#{log.log_id}</strong></td>
-                      <td style={{ whiteSpace: "nowrap" }}>{log.changed_at}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{log.changed_at} BST</td>
                       <td><span className="admin-table-pill">{log.table_name}</span></td>
                       <td>
                         <span className={`admin-op-pill ${log.operation.toLowerCase()}`}>

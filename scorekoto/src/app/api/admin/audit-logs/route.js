@@ -41,11 +41,18 @@ export async function GET(request) {
 
     const result = await pool.query(query, params);
 
-    return NextResponse.json({
-      success: true,
-      count: result.rows.length,
-      logs: result.rows,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: result.rows.length,
+        logs: result.rows,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
+    );
   } catch (err) {
     console.error('Error fetching audit logs:', err);
     return NextResponse.json(
