@@ -654,12 +654,24 @@ function PitchPlayer({ player, team, events }) {
 }
 
 function PlayerAvatar({ player, variant = "pitch" }) {
+  const [imageFailed, setImageFailed] = useState(false);
   const fallback = player.number
     ? `#${player.number}`
     : String(player.name || "?").trim().charAt(0).toUpperCase() || "?";
+  const photo = player.photo || (player.id
+    ? `https://media.api-sports.io/football/players/${player.id}.png`
+    : null);
 
-  if (player.photo) {
-    return <img src={player.photo} alt="" className={`player-avatar player-avatar-${variant}`} loading="lazy" />;
+  if (photo && !imageFailed) {
+    return (
+      <img
+        src={photo}
+        alt={`${player.name || "Player"} portrait`}
+        className={`player-avatar player-avatar-${variant}`}
+        loading="lazy"
+        onError={() => setImageFailed(true)}
+      />
+    );
   }
 
   return <span className={`pitch-shirt player-avatar-fallback player-avatar-fallback-${variant}`}>{fallback}</span>;
