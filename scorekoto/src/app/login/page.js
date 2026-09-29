@@ -104,6 +104,11 @@ export default function LoginPage() {
             </button>
           </form>
 
+          <Link href="/" className="auth-guest-link">
+            <Icon name="globe" />
+            Continue as guest
+          </Link>
+
           <div className="auth-footer">
             <p>
               Don&apos;t have an account?{" "}

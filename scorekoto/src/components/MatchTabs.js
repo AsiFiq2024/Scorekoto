@@ -601,10 +601,14 @@ function SubstituteList({ lineup, events }) {
             href={`/players/${playerSlug}`}
             className="substitute-player substitute-player-link"
           >
-            <span>{player.number ? `#${player.number}` : "Sub"}</span>
+            <div className="substitute-player-visual">
+              <PlayerAvatar player={player} variant="substitute" />
+            </div>
             <div className="substitute-player-details">
-              <strong>{player.name}</strong>
-              <PlayerMatchBadges indicators={indicators} />
+              <div className="substitute-player-name">
+                <strong>{player.name}</strong>
+                <PlayerMatchBadges indicators={indicators} />
+              </div>
             </div>
             <PlayerRating rating={player.rating} compact />
           </Link>
@@ -621,17 +625,14 @@ function PitchPlayer({ player, team, events }) {
   const content = (
     <>
       <div className="pitch-player-visual">
-        <div className="pitch-shirt">
-        {player.number ?? "—"}
-        </div>
+        <PlayerAvatar player={player} />
         <PlayerRating rating={player.rating} />
+        <PlayerMatchBadges indicators={indicators} />
       </div>
 
       <strong>
         {player.name}
       </strong>
-
-      <PlayerMatchBadges indicators={indicators} />
 
       <span>
         {player.position}
@@ -647,6 +648,18 @@ function PitchPlayer({ player, team, events }) {
       {content}
     </Link>
   );
+}
+
+function PlayerAvatar({ player, variant = "pitch" }) {
+  const fallback = player.number
+    ? `#${player.number}`
+    : String(player.name || "?").trim().charAt(0).toUpperCase() || "?";
+
+  if (player.photo) {
+    return <img src={player.photo} alt="" className={`player-avatar player-avatar-${variant}`} loading="lazy" />;
+  }
+
+  return <span className={`pitch-shirt player-avatar-fallback player-avatar-fallback-${variant}`}>{fallback}</span>;
 }
 
 function PlayerRating({ rating, compact = false }) {
@@ -688,13 +701,13 @@ function PlayerMatchBadges({ indicators }) {
         >
           {indicator.type === "goal" && <Icon name="football" />}
           {indicator.type === "penalty-goal" && <Icon name="target" />}
-          {indicator.type === "assist" && <b>A</b>}
-          {indicator.type === "own-goal" && <b>OG</b>}
+          {indicator.type === "missed-penalty" && <Icon name="target" />}
+          {indicator.type === "assist" && <Icon name="assist" />}
+          {indicator.type === "own-goal" && <Icon name="football" />}
           {indicator.type === "yellow-card" && <Icon name="yellowCard" />}
           {indicator.type === "red-card" && <Icon name="redCard" />}
           {indicator.type === "sub-in" && <Icon name="arrowUp" />}
           {indicator.type === "sub-out" && <Icon name="arrowDown" />}
-          {indicator.minute && <small>{indicator.minute}</small>}
         </span>
       ))}
     </span>
@@ -714,6 +727,10 @@ function getPlayerMatchIndicators(player, team, events) {
         label: event.type === "penalty-goal" ? "Penalty goal" : "Goal",
         minute: event.minute,
       });
+    }
+
+    if (event.type === "missed-penalty" && eventMatchesTeam && isEventPlayer) {
+      indicators.push({ type: "missed-penalty", label: "Missed penalty", minute: event.minute });
     }
 
     // The provider assigns own-goal events to the benefiting team, while the

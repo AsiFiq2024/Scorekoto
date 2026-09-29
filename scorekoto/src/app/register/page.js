@@ -160,6 +160,11 @@ export default function RegisterPage() {
 
           <p className="auth-terms">By creating an account, you agree to use Scorekoto responsibly.</p>
 
+          <Link href="/" className="auth-guest-link">
+            <Icon name="globe" />
+            Continue as guest
+          </Link>
+
           <div className="auth-footer">
             <p>
               Already have an account?{" "}

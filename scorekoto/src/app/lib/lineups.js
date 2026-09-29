@@ -12,6 +12,7 @@ export function mapApiSportsLineup(
   }
 
   const playerRatings = buildPlayerRatings(apiPlayers);
+  const playerProfiles = buildPlayerProfiles(apiPlayers);
 
   function getPlayerRating(player) {
     if (player?.id && playerRatings.byId.has(Number(player.id))) {
@@ -19,6 +20,14 @@ export function mapApiSportsLineup(
     }
 
     return playerRatings.byName.get(normalizePlayerName(player?.name)) ?? null;
+  }
+
+  function getPlayerPhoto(player) {
+    if (player?.id && playerProfiles.byId.has(Number(player.id))) {
+      return playerProfiles.byId.get(Number(player.id));
+    }
+
+    return playerProfiles.byName.get(normalizePlayerName(player?.name)) ?? null;
   }
 
   function mapSingleTeam(item, defaultTeam) {
@@ -37,6 +46,7 @@ export function mapApiSportsLineup(
           position: entry.player.pos || null,
           row: gridRow || positionRow || 1,
           rating: getPlayerRating(entry.player),
+          photo: entry.player.photo || getPlayerPhoto(entry.player),
         };
       });
 
@@ -47,6 +57,7 @@ export function mapApiSportsLineup(
         name: entry.player.name,
         number: entry.player.number ?? null,
         rating: getPlayerRating(entry.player),
+        photo: entry.player.photo || getPlayerPhoto(entry.player),
       }));
 
     if (startingXI.length === 0) {
@@ -97,6 +108,24 @@ function buildPlayerRatings(apiPlayers) {
       if (entry.player?.id) byId.set(Number(entry.player.id), parsedRating);
       const normalizedName = normalizePlayerName(entry.player?.name);
       if (normalizedName) byName.set(normalizedName, parsedRating);
+    }
+  }
+
+  return { byId, byName };
+}
+
+function buildPlayerProfiles(apiPlayers) {
+  const byId = new Map();
+  const byName = new Map();
+
+  for (const team of Array.isArray(apiPlayers) ? apiPlayers : []) {
+    for (const entry of Array.isArray(team?.players) ? team.players : []) {
+      const photo = entry?.player?.photo;
+      if (!photo) continue;
+
+      if (entry.player?.id) byId.set(Number(entry.player.id), photo);
+      const normalizedName = normalizePlayerName(entry.player?.name);
+      if (normalizedName) byName.set(normalizedName, photo);
     }
   }
 

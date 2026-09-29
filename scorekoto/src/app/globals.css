@@ -4742,6 +4742,38 @@ img {
   font-weight: 900;
 }
 
+.player-avatar {
+  width: 40px;
+  height: 40px;
+  display: block;
+  flex: 0 0 40px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  background: var(--black);
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.28);
+}
+
+.player-avatar-fallback {
+  border-radius: 11px 11px 14px 14px;
+}
+
+.player-avatar-substitute {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
+  border-color: var(--border);
+}
+
+.player-avatar-fallback-substitute {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
+  padding: 0;
+  border-color: var(--border);
+  font-size: 10px;
+}
+
 
 .pitch-player-visual {
   position: relative;
@@ -4799,66 +4831,68 @@ img {
 }
 
 .player-event-badge {
-  min-height: 16px;
-  padding: 1px 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  background: rgba(4, 18, 12, 0.9);
+  flex: 0 0 20px;
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 50%;
+  background: rgba(4, 18, 12, 0.94);
   color: #f4fbf7;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  font-size: 8px;
-  font-weight: 900;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
   line-height: 1;
-  white-space: nowrap;
 }
 
 .player-event-badge .ui-icon {
-  width: 10px;
-  height: 10px;
-  flex: 0 0 10px;
-}
-
-.player-event-badge b {
-  color: currentColor;
-  font-size: 8px;
-  font-weight: 950;
-}
-
-.player-event-badge small {
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 7px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 850;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
 }
 
 .player-event-badge-goal,
 .player-event-badge-penalty-goal {
-  color: var(--mint);
+  background: #f6fbf8;
+  color: #07110c;
 }
 
 .player-event-badge-assist {
-  color: #8db4ff;
+  background: #3777e3;
+  color: #ffffff;
 }
 
 .player-event-badge-own-goal {
-  color: #ffd66b;
+  background: #f6c945;
+  color: #201902;
 }
 
-.player-event-badge-yellow-card .ui-icon {
+.player-event-badge-yellow-card {
+  background: #fff9df;
   color: #f6c945;
 }
 
-.player-event-badge-red-card .ui-icon,
+.player-event-badge-red-card,
+.player-event-badge-missed-penalty,
 .player-event-badge-sub-out {
-  color: #ff6673;
+  background: #ef5261;
+  color: #ffffff;
 }
 
 .player-event-badge-sub-in {
-  color: #69f5bd;
+  background: #55e6b1;
+  color: #06100b;
+}
+
+.pitch-player-visual > .player-event-badges {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  right: calc(100% - 5px);
+  max-width: none;
+  flex-flow: column nowrap;
+  transform: translateY(-50%);
 }
 
 /* =========================================================
@@ -5057,7 +5091,7 @@ img {
   display: grid;
 
   grid-template-columns:
-    50px
+    minmax(74px, auto)
     minmax(0, 1fr)
     auto;
 
@@ -5083,9 +5117,28 @@ img {
 }
 
 
-/* Player number */
+/* Player number and match indicators */
 
-.substitute-player > span:first-child {
+.substitute-player-visual {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.substitute-player-name {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.substitute-player-name .player-event-badges {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+}
+
+.substitute-player-number {
   width: fit-content;
 
   padding: 4px 8px;
@@ -5098,6 +5151,11 @@ img {
 
   font-size: 10px;
   font-weight: 850;
+}
+
+.substitute-player-visual .player-event-badges {
+  max-width: 48px;
+  justify-content: flex-start;
 }
 
 
@@ -5350,19 +5408,15 @@ img {
   }
 
   .pitch-player .player-event-badge {
-    min-height: 13px;
-    padding: 1px 2px;
+    width: 17px;
+    height: 17px;
+    flex-basis: 17px;
   }
 
   .pitch-player .player-event-badge .ui-icon {
-    width: 8px;
-    height: 8px;
-    flex-basis: 8px;
-  }
-
-  .pitch-player .player-event-badge b,
-  .pitch-player .player-event-badge small {
-    font-size: 6px;
+    width: 9px;
+    height: 9px;
+    flex-basis: 9px;
   }
 
 
@@ -5413,7 +5467,7 @@ img {
 
   .substitute-player {
     grid-template-columns:
-      46px
+      minmax(68px, auto)
       minmax(0, 1fr)
       auto;
 
@@ -7748,6 +7802,18 @@ img {
   border-color: rgba(105, 245, 189, 0.24);
 }
 
+:root[data-theme="dark"] .search-input-wrapper input,
+:root[data-theme="dark"] .search-input-wrapper input:focus {
+  background: transparent;
+  color: #edf8f2 !important;
+  caret-color: var(--mint);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .search-input-wrapper input::placeholder {
+  color: #8da69a;
+}
+
 :root[data-theme="dark"] .theme-toggle:hover,
 :root[data-theme="dark"] .search-input-wrapper:focus-within,
 :root[data-theme="dark"] .notification-button:hover {
@@ -9294,11 +9360,17 @@ img {
    Matchday-led sign in and account creation.
 ========================================================= */
 
+.auth-route-content {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 .auth-page-container {
   width: 100%;
   min-width: 0;
-  min-height: calc(100dvh - 148px);
-  padding: 4px 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(24px, 4vw, 48px) 20px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   place-items: center;
@@ -9645,6 +9717,40 @@ img {
   height: 17px;
 }
 
+.auth-guest-link {
+  min-height: 46px;
+  margin-top: 14px;
+  padding: 10px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid var(--control-border);
+  border-radius: 13px;
+  background: transparent;
+  color: var(--control-text);
+  font-size: 13px;
+  font-weight: 780;
+  text-decoration: none;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.auth-guest-link:hover {
+  color: var(--control-accent);
+  border-color: var(--mint-dark);
+  background: var(--control-bg-hover);
+  transform: translateY(-1px);
+}
+
+.auth-guest-link .ui-icon {
+  width: 17px;
+  height: 17px;
+}
+
 .auth-terms {
   margin: 13px 0 0;
   color: var(--muted-light);
@@ -9672,10 +9778,6 @@ img {
 }
 
 @media (max-width: 1050px) {
-  .auth-page-container {
-    min-height: auto;
-  }
-
   .auth-shell {
     min-height: 0;
     grid-template-columns: 1fr;
@@ -9712,7 +9814,7 @@ img {
 
 @media (max-width: 780px) {
   .auth-page-container {
-    padding: 0;
+    padding: 24px 16px;
   }
 
   .auth-shell {
@@ -10614,13 +10716,6 @@ body {
 }
 
 .sidebar {
-  top: var(--app-nav-height);
-  height: calc(100vh - var(--app-nav-height));
-  height: calc(100dvh - var(--app-nav-height));
-  max-height: calc(100dvh - var(--app-nav-height));
-  padding-top: 20px;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
-  overscroll-behavior: contain;
   background:
     linear-gradient(180deg, rgba(105, 245, 189, 0.025), transparent 38%),
     #08100c;
@@ -10842,6 +10937,103 @@ body {
 
 .substitute-player-details .player-event-badges {
   justify-content: flex-start;
+}
+
+/* Modern match-event micro badges and lineup photos. */
+.faceoff-lineup .pitch-player .player-avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 2px solid rgba(255, 255, 255, 0.86);
+  border-radius: 50%;
+  object-fit: cover;
+  background: linear-gradient(145deg, #1f2b26, #07110c);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32), 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.faceoff-lineup .substitute-player .player-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-soft);
+  box-shadow: 0 4px 12px rgba(5, 18, 12, 0.16);
+}
+
+.faceoff-lineup .player-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--mint);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.faceoff-lineup .player-event-badges {
+  gap: 4px;
+}
+
+.faceoff-lineup .player-event-badge {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 7px;
+  background: rgba(7, 17, 12, 0.88);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  transform: translateZ(0);
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.faceoff-lineup .player-event-badge:hover {
+  z-index: 2;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.34);
+  filter: brightness(1.08);
+  transform: translateY(-2px) scale(1.08);
+}
+
+.faceoff-lineup .player-event-badge .ui-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.faceoff-lineup .player-event-badge-goal,
+.faceoff-lineup .player-event-badge-penalty-goal {
+  background: linear-gradient(145deg, #ffffff, #d8f8e9);
+  color: #0b3d2a;
+}
+
+.faceoff-lineup .player-event-badge-assist {
+  background: linear-gradient(145deg, #5f9bff, #2861c7);
+  color: #ffffff;
+}
+
+.faceoff-lineup .player-event-badge-yellow-card {
+  background: linear-gradient(145deg, #ffe98a, #f3b819);
+  color: #4d3500;
+}
+
+.faceoff-lineup .player-event-badge-red-card,
+.faceoff-lineup .player-event-badge-missed-penalty,
+.faceoff-lineup .player-event-badge-sub-out {
+  background: linear-gradient(145deg, #ff8790, #d9364e);
+  color: #ffffff;
+}
+
+.faceoff-lineup .player-event-badge-sub-in {
+  background: linear-gradient(145deg, #8affcf, #28bd83);
+  color: #062d1e;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faceoff-lineup .player-event-badge {
+    transition: none;
+  }
 }
 
 .substitute-player > .player-match-rating-compact {
@@ -11099,13 +11291,6 @@ textarea {
     --app-nav-height: 64px;
     min-height: calc(100vh - 64px);
     min-height: calc(100dvh - var(--app-nav-height));
-  }
-
-  .sidebar {
-    top: var(--app-nav-height);
-    height: calc(100vh - var(--app-nav-height));
-    height: calc(100dvh - var(--app-nav-height));
-    max-height: calc(100dvh - var(--app-nav-height));
   }
 
   .nav-user-info .nav-user-name {

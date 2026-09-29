@@ -3,6 +3,7 @@ const paths = {
   arrowLeft: <path d="m15 18-6-6 6-6M9 12h10" />,
   arrowUp: <path d="M12 20V5M6 11l6-6 6 6" />,
   arrowDown: <path d="M12 4v15M6 13l6 6 6-6" />,
+  assist: <><path d="M5 4v7.5c0 1.4.9 2.6 2.2 3l4.3 1L13 18h6a2 2 0 0 0 0-4h-3.5L13 11.5V7L9 9 8 4H5Z" /><path d="M12 15.6h4" /></>,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
   bolt: <path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z" />,
   cake: <><path d="M4 11h16v9H4zM4 15h16M8 11V8M12 11V8M16 11V8" /><path d="M8 5v.01M12 5v.01M16 5v.01" /></>,

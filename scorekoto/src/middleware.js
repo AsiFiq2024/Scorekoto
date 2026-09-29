@@ -1,12 +1,34 @@
 import { NextResponse } from 'next/server';
 
-// Public paths that do not require authentication
-const PUBLIC_PATHS = [
+const PUBLIC_AUTH_PATHS = [
   '/login',
   '/register',
   '/api/auth/login',
   '/api/auth/register',
+  '/api/auth/me',
 ];
+
+const PUBLIC_PAGE_PATHS = [
+  '/',
+  '/teams',
+  '/leagues',
+  '/matches',
+  '/news',
+  '/players',
+];
+
+const PUBLIC_DATA_PATHS = [
+  '/api/matches',
+  '/api/teams',
+  '/api/news',
+  '/api/search',
+  '/api/sidebar',
+  '/api/notifications',
+];
+
+function matchesPath(pathname, path) {
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
 
 export function middleware(request) {
   const { pathname } = request.nextUrl;
@@ -21,12 +43,7 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
-  // 2. Allow explicitly public paths (login, register)
-  if (PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(path + '/'))) {
-    return NextResponse.next();
-  }
-
-  // 3. Extract authentication token from Cookie or Authorization header
+  // 2. Perform a lightweight authentication check for route access.
   const tokenCookie = request.cookies.get('scorekoto_token');
   const token = tokenCookie?.value;
   const authHeader = request.headers.get('authorization');
@@ -34,14 +51,28 @@ export function middleware(request) {
 
   const isAuthenticated = Boolean(token || hasBearerToken);
 
-  // 4. If not authenticated:
+  // 3. Authentication screens and endpoints remain available to signed-out users.
+  if (PUBLIC_AUTH_PATHS.some((path) => matchesPath(pathname, path))) {
+    if (isAuthenticated && (pathname === '/login' || pathname === '/register')) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 4. Guests can browse football content and use its read-only data endpoints.
+  const isPublicPage = PUBLIC_PAGE_PATHS.some((path) => matchesPath(pathname, path));
+  const isPublicDataRequest = request.method === 'GET'
+    && PUBLIC_DATA_PATHS.some((path) => matchesPath(pathname, path));
+  const isGuestCommentPost = request.method === 'POST'
+    && /^\/api\/matches\/[^/]+\/comments$/.test(pathname);
+
+  if (isPublicPage || isPublicDataRequest || isGuestCommentPost) {
+    return NextResponse.next();
+  }
+
+  // 5. Keep account, favorites, admin, sync, and other private routes protected.
   if (!isAuthenticated) {
-    // If request is an API route, return 401 Unauthorized JSON
     if (pathname.startsWith('/api/')) {
-      // Allow /api/auth/me to return { user: null } gracefully without a 401 blocker
-      if (pathname === '/api/auth/me') {
-        return NextResponse.next();
-      }
       return NextResponse.json(
         { error: 'Authentication required. Please log in to proceed.' },
         { status: 401 }
@@ -50,15 +81,8 @@ export function middleware(request) {
 
     // If request is a page, redirect to /login
     const loginUrl = new URL('/login', request.url);
-    if (pathname !== '/') {
-      loginUrl.searchParams.set('redirect', pathname);
-    }
+    loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  // 5. If authenticated and attempting to visit /login or /register, redirect to home
-  if (isAuthenticated && (pathname === '/login' || pathname === '/register')) {
-    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return NextResponse.next();
