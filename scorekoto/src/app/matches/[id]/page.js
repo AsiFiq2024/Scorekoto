@@ -37,7 +37,8 @@ function calculateElapsedMinute(matchDate, status) {
   if (diffMinutes <= 45) return `${Math.max(1, diffMinutes)}'`;
   if (diffMinutes <= 60) return 'HT';
   if (diffMinutes <= 105) return `${diffMinutes - 15}'`;
-  return "90+'";
+  if (diffMinutes < 120) return "90+'";
+  return 'FT'; // Auto-stop after 120 minutes (2 hours)
 }
 
 // 1. Fetch from PostgreSQL database
@@ -78,7 +79,26 @@ async function getMatchFromDb(matchId) {
     }
 
     const row = result.rows[0];
-    const isLiveDb = isLiveStatus(row.status);
+    let isLiveDb = isLiveStatus(row.status);
+    let matchStatus = row.status;
+    let matchMinute = '';
+
+    if (isLiveDb) {
+      const start = row.matchDate ? new Date(row.matchDate).getTime() : 0;
+      const diffMinutes = start ? Math.floor((Date.now() - start) / (60 * 1000)) : 0;
+      if (diffMinutes >= 120) {
+        isLiveDb = false;
+        matchStatus = 'FT';
+        matchMinute = 'FT';
+        pool.query(`UPDATE match SET status = 'FT' WHERE match_id = $1`, [row.id]).catch(() => {});
+      } else {
+        matchMinute = calculateElapsedMinute(row.matchDate, row.status);
+      }
+    } else if (row.status === 'HT') {
+      matchMinute = 'HT';
+    } else if (['NS', 'UPCOMING', 'TBD', 'TIMED', 'PST'].includes(String(row.status).toUpperCase())) {
+      matchMinute = hasKnownKickoffTime(row.matchDate, row.status) ? null : 'TBD';
+    }
 
     return {
       id: row.id,
@@ -94,15 +114,9 @@ async function getMatchFromDb(matchId) {
       awayPossession: row.awayPossession === null ? null : Number(row.awayPossession),
       homeRating: row.homeRating === null ? null : Number(row.homeRating),
       awayRating: row.awayRating === null ? null : Number(row.awayRating),
-      status: row.status,
-      providerStatus: row.status,
-      minute: isLiveDb
-        ? calculateElapsedMinute(row.matchDate, row.status)
-        : row.status === 'HT'
-        ? 'HT'
-        : ['NS', 'UPCOMING', 'TBD', 'TIMED', 'PST'].includes(String(row.status).toUpperCase())
-        ? hasKnownKickoffTime(row.matchDate, row.status) ? null : 'TBD'
-        : '',
+      status: matchStatus,
+      providerStatus: matchStatus,
+      minute: matchMinute,
       league: row.league,
       venue: row.venue || row.stadium,
       matchDate: row.matchDate,

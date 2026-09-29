@@ -81,7 +81,8 @@ function calculateElapsedMinute(matchDate, status) {
   if (diffMinutes <= 45) return `${Math.max(1, diffMinutes)}'`;
   if (diffMinutes <= 60) return 'HT';
   if (diffMinutes <= 105) return `${diffMinutes - 15}'`;
-  return "90+'";
+  if (diffMinutes < 120) return "90+'";
+  return 'FT'; // Auto-stop after 120 minutes (2 hours)
 }
 
 function getDateString(offsetDays = 0) {
@@ -136,9 +137,16 @@ function mapApiStatistics(item) {
 // Map API-Sports raw fixture to standard Scorekoto format
 function mapApiFixture(item, dateLabel = 'today') {
   const statusShort = item.fixture?.status?.short || '';
-  const isFinished = ['FT', 'AET', 'PEN'].includes(statusShort);
+  const isFinishedRaw = ['FT', 'AET', 'PEN'].includes(statusShort);
   const isUpcoming = ['NS', 'TBD', 'TIMED'].includes(statusShort);
-  const isLive = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(statusShort);
+  const isLiveRaw = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(statusShort);
+
+  const start = item.fixture?.date ? new Date(item.fixture.date).getTime() : 0;
+  const diffMinutes = start ? Math.floor((Date.now() - start) / (60 * 1000)) : 0;
+  const isExpiredLive = isLiveRaw && diffMinutes >= 120;
+
+  const isFinished = isFinishedRaw || isExpiredLive;
+  const isLive = isLiveRaw && !isExpiredLive;
 
   return {
     id: item.fixture.id,
@@ -151,10 +159,12 @@ function mapApiFixture(item, dateLabel = 'today') {
     awayLogo: item.teams?.away?.logo || null,
     homeScore: item.goals?.home ?? null,
     awayScore: item.goals?.away ?? null,
-    status: isFinished ? statusShort : isUpcoming ? 'UPCOMING' : isLive ? 'LIVE' : statusShort,
-    providerStatus: statusShort,
+    status: isFinished ? (isFinishedRaw ? statusShort : 'FT') : isUpcoming ? 'UPCOMING' : isLive ? 'LIVE' : statusShort,
+    providerStatus: isExpiredLive ? 'FT' : statusShort,
     minute:
-      statusShort === 'HT'
+      isExpiredLive
+        ? 'FT'
+        : statusShort === 'HT'
         ? 'HT'
         : item.fixture?.status?.elapsed
         ? `${item.fixture.status.elapsed}'`
@@ -216,6 +226,20 @@ function mapApiFixture(item, dateLabel = 'today') {
     stats: mapApiStatistics(item),
     rawLineups: item.lineups || null,
   };
+}
+
+// Auto-finalize in-play matches that have exceeded 2 hours (120 minutes) from kickoff
+async function autoFinalizeExpiredMatches() {
+  try {
+    await pool.query(`
+      UPDATE match
+      SET status = 'FT'
+      WHERE status IN ('LIVE', '1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT')
+        AND match_date <= (NOW() - INTERVAL '120 minutes')
+    `);
+  } catch (err) {
+    console.warn('Auto-finalize expired matches notice:', err.message);
+  }
 }
 
 // Background auto-save of matches to PostgreSQL
@@ -315,7 +339,7 @@ async function autoSaveFixturesToDb(fixtures) {
              season_id = EXCLUDED.season_id,
              home_team_id = EXCLUDED.home_team_id,
              away_team_id = EXCLUDED.away_team_id,
-             status = EXCLUDED.status,
+             status = CASE WHEN match.status IN ('FT', 'AET', 'PEN') AND EXCLUDED.status NOT IN ('FT', 'AET', 'PEN') THEN match.status ELSE EXCLUDED.status END,
              home_score = EXCLUDED.home_score,
              away_score = EXCLUDED.away_score,
              match_date = EXCLUDED.match_date,
@@ -493,6 +517,9 @@ export async function GET(request) {
     const todayDate = getDateString(0);
     const tomorrowDate = getDateString(1);
     const dayAfterTomorrowDate = getDateString(2);
+
+    // Auto-finalize in-play matches that have exceeded 2 hours from kickoff
+    await autoFinalizeExpiredMatches();
 
     // 1. Get stored leagues from DB
     const storedLeagues = await getStoredLeagues();
@@ -684,21 +711,48 @@ export async function GET(request) {
          LIMIT 20`,
         [todayDate, tomorrowDate]
       );
-      dbLiveMatches = liveDbRes.rows.map((row) => ({
-        id: row.id,
-        date: 'today',
-        homeTeam: row.homeTeam,
-        awayTeam: row.awayTeam,
-        homeLogo: row.homeLogo,
-        awayLogo: row.awayLogo,
-        homeScore: row.homeScore ?? 0,
-        awayScore: row.awayScore ?? 0,
-        status: 'LIVE',
-        minute: calculateElapsedMinute(row.matchDate, row.status),
-        league: getCompetitionName(row.leagueId, row.league),
-        events: [],
-        stats: null,
-      }));
+      const now = Date.now();
+      dbLiveMatches = [];
+      for (const row of liveDbRes.rows) {
+        const start = row.matchDate ? new Date(row.matchDate).getTime() : 0;
+        const diffMinutes = start ? Math.floor((now - start) / (60 * 1000)) : 0;
+
+        if (diffMinutes >= 120) {
+          if (!dbFinishedMatches.some((m) => m.id === row.id)) {
+            dbFinishedMatches.push({
+              id: row.id,
+              date: 'today',
+              homeTeam: row.homeTeam,
+              awayTeam: row.awayTeam,
+              homeLogo: row.homeLogo,
+              awayLogo: row.awayLogo,
+              homeScore: row.homeScore ?? 0,
+              awayScore: row.awayScore ?? 0,
+              status: 'FT',
+              minute: 'FT',
+              league: getCompetitionName(row.leagueId, row.league),
+              events: [],
+              stats: null,
+            });
+          }
+        } else {
+          dbLiveMatches.push({
+            id: row.id,
+            date: 'today',
+            homeTeam: row.homeTeam,
+            awayTeam: row.awayTeam,
+            homeLogo: row.homeLogo,
+            awayLogo: row.awayLogo,
+            homeScore: row.homeScore ?? 0,
+            awayScore: row.awayScore ?? 0,
+            status: 'LIVE',
+            minute: calculateElapsedMinute(row.matchDate, row.status),
+            league: getCompetitionName(row.leagueId, row.league),
+            events: [],
+            stats: null,
+          });
+        }
+      }
 
       // 3. Upcoming Matches in PostgreSQL
       const upcomingRes = await pool.query(
@@ -739,11 +793,28 @@ export async function GET(request) {
     dbFinishedMatches = apiTodayFinished.length > 0 ? apiTodayFinished : dbFinishedMatches;
     dbUpcomingMatches = apiTodayUpcoming.length > 0 ? apiTodayUpcoming : dbUpcomingMatches;
 
-    // Merge live matches
-    const combinedLiveMatches = apiTodayLive.length > 0 ? [...apiTodayLive] : [...dbLiveMatches];
+    // Merge live matches and strictly filter out any matches exceeding 2 hours
+    const rawCombinedLive = apiTodayLive.length > 0 ? [...apiTodayLive] : [...dbLiveMatches];
     for (const apiMatch of liveResult.matches) {
-      if (!combinedLiveMatches.some((m) => m.id === apiMatch.id)) {
-        combinedLiveMatches.push(apiMatch);
+      if (!rawCombinedLive.some((m) => m.id === apiMatch.id)) {
+        rawCombinedLive.push(apiMatch);
+      }
+    }
+
+    const combinedLiveMatches = [];
+    for (const m of rawCombinedLive) {
+      const start = m.matchDate ? new Date(m.matchDate).getTime() : 0;
+      const diffMinutes = start ? Math.floor((Date.now() - start) / (60 * 1000)) : 0;
+      if (diffMinutes >= 120) {
+        if (!dbFinishedMatches.some((f) => f.id === m.id)) {
+          dbFinishedMatches.unshift({
+            ...m,
+            status: 'FT',
+            minute: 'FT',
+          });
+        }
+      } else {
+        combinedLiveMatches.push(m);
       }
     }
 

@@ -97,7 +97,14 @@ export default function MatchDetailClient({ initialMatch, initialLineup }) {
     const ticker = setInterval(() => {
       setMatch((prev) => {
         const cur = parseInt((prev?.minute || "").replace(/[^0-9]/g, ""), 10);
-        if (!cur || isNaN(cur) || cur >= 120) return prev;
+        if (!cur || isNaN(cur)) return prev;
+        if (cur >= 120) {
+          return {
+            ...prev,
+            status: "FT",
+            minute: "FT",
+          };
+        }
         return {
           ...prev,
           minute: `${cur + 1}'`,

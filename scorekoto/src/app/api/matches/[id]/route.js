@@ -35,7 +35,8 @@ function calculateElapsedMinute(matchDate, status) {
   if (diffMinutes <= 45) return `${Math.max(1, diffMinutes)}'`;
   if (diffMinutes <= 60) return 'HT';
   if (diffMinutes <= 105) return `${diffMinutes - 15}'`;
-  return "90+'";
+  if (diffMinutes < 120) return "90+'";
+  return 'FT'; // Auto-stop after 120 minutes (2 hours)
 }
 
 export async function GET(request, { params }) {
@@ -297,7 +298,26 @@ export async function GET(request, { params }) {
 
     // 3. Fallback: Return match from PostgreSQL database
     if (dbRow) {
-      const isLiveDb = isLiveStatus(dbRow.status);
+      let isLiveDb = isLiveStatus(dbRow.status);
+      let matchStatus = dbRow.status;
+      let matchMinute = '';
+
+      if (isLiveDb) {
+        const start = dbRow.matchDate ? new Date(dbRow.matchDate).getTime() : 0;
+        const diffMinutes = start ? Math.floor((Date.now() - start) / (60 * 1000)) : 0;
+        if (diffMinutes >= 120) {
+          isLiveDb = false;
+          matchStatus = 'FT';
+          matchMinute = 'FT';
+          pool.query(`UPDATE match SET status = 'FT' WHERE match_id = $1`, [dbRow.id]).catch(() => {});
+        } else {
+          matchMinute = calculateElapsedMinute(dbRow.matchDate, dbRow.status);
+        }
+      } else if (dbRow.status === 'HT') {
+        matchMinute = 'HT';
+      } else if (['NS', 'UPCOMING', 'TBD', 'TIMED', 'PST'].includes(String(dbRow.status).toUpperCase())) {
+        matchMinute = hasKnownKickoffTime(dbRow.matchDate, dbRow.status) ? null : 'TBD';
+      }
 
       const formattedMatch = {
         id: dbRow.id,
@@ -313,15 +333,9 @@ export async function GET(request, { params }) {
         awayPossession: dbRow.awayPossession === null ? null : Number(dbRow.awayPossession),
         homeRating: dbRow.homeRating === null ? null : Number(dbRow.homeRating),
         awayRating: dbRow.awayRating === null ? null : Number(dbRow.awayRating),
-        status: dbRow.status,
-        providerStatus: dbRow.status,
-        minute: isLiveDb
-          ? calculateElapsedMinute(dbRow.matchDate, dbRow.status)
-          : dbRow.status === 'HT'
-          ? 'HT'
-          : ['NS', 'UPCOMING', 'TBD', 'TIMED', 'PST'].includes(String(dbRow.status).toUpperCase())
-          ? hasKnownKickoffTime(dbRow.matchDate, dbRow.status) ? null : 'TBD'
-          : '',
+        status: matchStatus,
+        providerStatus: matchStatus,
+        minute: matchMinute,
         league: dbRow.league,
         venue: dbRow.venue || dbRow.stadium,
         matchDate: dbRow.matchDate,
