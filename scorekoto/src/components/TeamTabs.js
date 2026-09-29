@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Icon from "./Icon";
 import LocalKickoffTime from "./LocalKickoffTime";
@@ -279,7 +279,7 @@ function TeamNewsTab({ teamName }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadNews = async (forceRefresh = false) => {
+  const loadNews = useCallback(async (forceRefresh = false) => {
     try {
       if (forceRefresh) setRefreshing(true);
       else setLoading(true);
@@ -297,11 +297,11 @@ function TeamNewsTab({ teamName }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [teamName]);
 
   useEffect(() => {
     if (teamName) loadNews();
-  }, [teamName]);
+  }, [teamName, loadNews]);
 
   return (
     <section className="team-section">

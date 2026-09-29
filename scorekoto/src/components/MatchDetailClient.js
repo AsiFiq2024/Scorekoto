@@ -97,7 +97,7 @@ export default function MatchDetailClient({ initialMatch, initialLineup }) {
     }, 60000);
 
     return () => clearInterval(ticker);
-  }, [isLive, match?.status]);
+  }, [isLive, match?.status, match?.minute]);
 
   const homeLogo = match.homeLogo;
   const awayLogo = match.awayLogo;

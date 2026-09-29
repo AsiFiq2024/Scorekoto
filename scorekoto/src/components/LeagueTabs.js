@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import LocalKickoffTime from "./LocalKickoffTime";
@@ -364,7 +364,7 @@ function LeagueNewsTab({ leagueName }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const loadNews = async (forceRefresh = false) => {
+    const loadNews = useCallback(async (forceRefresh = false) => {
         try {
             if (forceRefresh) setRefreshing(true);
             else setLoading(true);
@@ -382,11 +382,11 @@ function LeagueNewsTab({ leagueName }) {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [leagueName]);
 
     useEffect(() => {
         loadNews();
-    }, [leagueName]);
+    }, [loadNews]);
 
     return (
         <section className="league-section">

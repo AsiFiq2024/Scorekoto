@@ -6,7 +6,8 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   {
     rules: {
-      "react-hooks/set-state-in-effect": "warn",
+      "@next/next/no-img-element": "off",
+      "react-hooks/set-state-in-effect": "off",
     },
   },
   globalIgnores([

@@ -6,6 +6,7 @@ const __dirname = path.dirname(__filename);
 
 // Next.js configuration enabling React Compiler
 const nextConfig = {
+  devIndicators: false,
   turbopack: {
     root: __dirname,
   },
