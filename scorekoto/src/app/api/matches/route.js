@@ -77,7 +77,7 @@ function calculateElapsedMinute(matchDate, status) {
   const start = new Date(matchDate).getTime();
   const now = Date.now();
   const diffMinutes = Math.floor((now - start) / (60 * 1000));
-  if (diffMinutes < 0) return 'TBD';
+  if (diffMinutes <= 0) return "1'";
   if (diffMinutes <= 45) return `${Math.max(1, diffMinutes)}'`;
   if (diffMinutes <= 60) return 'HT';
   if (diffMinutes <= 105) return `${diffMinutes - 15}'`;
@@ -85,9 +85,13 @@ function calculateElapsedMinute(matchDate, status) {
 }
 
 function getDateString(offsetDays = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().split('T')[0];
+  const now = new Date();
+  const bdNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Dhaka' }));
+  bdNow.setDate(bdNow.getDate() + offsetDays);
+  const year = bdNow.getFullYear();
+  const month = String(bdNow.getMonth() + 1).padStart(2, '0');
+  const day = String(bdNow.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function mapApiStatistics(item) {
@@ -306,7 +310,7 @@ async function autoSaveFixturesToDb(fixtures) {
         // Upsert match
         await pool.query(
           `INSERT INTO match (match_id, season_id, home_team_id, away_team_id, match_date, venue, status, home_score, away_score)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           VALUES ($1, $2, $3, $4, ($5::timestamptz AT TIME ZONE 'UTC'), $6, $7, $8, $9)
            ON CONFLICT (match_id) DO UPDATE SET
              season_id = EXCLUDED.season_id,
              home_team_id = EXCLUDED.home_team_id,
@@ -432,7 +436,7 @@ async function fetchFixturesByDate(dateStr, dateLabel, storedLeagues, forceRefre
   }
 
   try {
-    const res = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dateStr}`, {
+    const res = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dateStr}&timezone=Asia/Dhaka`, {
       method: 'GET',
       headers: { 'x-apisports-key': apiKey, Accept: 'application/json' },
       cache: forceRefresh ? 'no-store' : 'default',
@@ -529,10 +533,11 @@ export async function GET(request) {
           `${baseSelect}
            WHERE m.status IN ('FT', 'AET', 'PEN')
              AND (l.league_id = ANY($1::int[]) OR l.league_id IS NULL)
-             AND (m.match_date >= $2::timestamp AND m.match_date < $3::timestamp)
+             AND (m.match_date >= ($2 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
+              AND m.match_date < ($3 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC')
            ORDER BY m.match_date DESC
            LIMIT 50`,
-          [leagueIdsArray, `${yesterdayDate} 00:00:00`, `${todayDate} 00:00:00`]
+          [leagueIdsArray, yesterdayDate, todayDate]
         );
 
         const dbMatches = dbRes.rows.map((row) => ({
@@ -586,11 +591,11 @@ export async function GET(request) {
           `${baseSelect}
            WHERE m.status IN ('NS', 'UPCOMING', 'TBD', 'TIMED')
              AND (l.league_id = ANY($1::int[]) OR l.league_id IS NULL)
-             AND m.match_date >= $2::timestamp
-             AND m.match_date < $3::timestamp
+             AND m.match_date >= ($2 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
+             AND m.match_date < ($3 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
            ORDER BY m.match_date ASC
            LIMIT 40`,
-          [leagueIdsArray, `${tomorrowDate} 00:00:00`, `${dayAfterTomorrowDate} 00:00:00`]
+          [leagueIdsArray, tomorrowDate, dayAfterTomorrowDate]
         );
 
         const dbMatches = dbRes.rows.map((row) => ({
@@ -647,11 +652,11 @@ export async function GET(request) {
         `${baseSelect}
          WHERE m.status IN ('FT', 'AET', 'PEN')
            AND (l.league_id = ANY($1::int[]) OR l.league_id IS NULL)
-           AND m.match_date >= $2::timestamp
-           AND m.match_date < $3::timestamp
+           AND m.match_date >= ($2 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
+           AND m.match_date < ($3 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
          ORDER BY m.match_date DESC
          LIMIT 60`,
-        [leagueIdsArray, `${todayDate} 00:00:00`, `${tomorrowDate} 00:00:00`]
+        [leagueIdsArray, todayDate, tomorrowDate]
       );
       dbFinishedMatches = finishedRes.rows.map((row) => ({
         id: row.id,
@@ -673,11 +678,11 @@ export async function GET(request) {
       const liveDbRes = await pool.query(
         `${baseSelect}
          WHERE m.status IN ('LIVE', '1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT')
-           AND m.match_date >= $1::timestamp
-           AND m.match_date < $2::timestamp
+           AND m.match_date >= ($1 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
+           AND m.match_date < ($2 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
          ORDER BY m.match_date DESC
          LIMIT 20`,
-        [`${todayDate} 00:00:00`, `${tomorrowDate} 00:00:00`]
+        [todayDate, tomorrowDate]
       );
       dbLiveMatches = liveDbRes.rows.map((row) => ({
         id: row.id,
@@ -699,11 +704,11 @@ export async function GET(request) {
       const upcomingRes = await pool.query(
         `${baseSelect}
          WHERE m.status IN ('NS', 'UPCOMING', 'TBD', 'TIMED')
-           AND m.match_date >= $1::timestamp
-           AND m.match_date < $2::timestamp
+           AND m.match_date >= ($1 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
+           AND m.match_date < ($2 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
          ORDER BY m.match_date ASC
          LIMIT 30`,
-        [`${todayDate} 00:00:00`, `${tomorrowDate} 00:00:00`]
+        [todayDate, tomorrowDate]
       );
       dbUpcomingMatches = upcomingRes.rows.map((row) => ({
         id: row.id,

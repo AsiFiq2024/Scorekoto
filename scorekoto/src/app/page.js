@@ -39,7 +39,13 @@ export default function Home() {
         setUpcomingMatches(data.upcomingMatches || []);
         setApiLimitHit(data.apiLimitHit || false);
         setApiMessage(data.apiMessage || "");
-        setLastUpdated(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+        setLastUpdated(new Intl.DateTimeFormat("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Dhaka",
+        }).format(new Date()) + " BST");
       }
     } catch (err) {
       console.error("Failed to fetch matches:", err);
@@ -67,7 +73,13 @@ export default function Home() {
           if (data.liveMatches) setLiveMatches(data.liveMatches);
           if (data.finishedMatches) setFinishedMatches(data.finishedMatches);
           if (data.upcomingMatches) setUpcomingMatches(data.upcomingMatches);
-          setLastUpdated(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+          setLastUpdated(new Intl.DateTimeFormat("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Dhaka",
+          }).format(new Date()) + " BST");
         })
         .catch(() => {});
     }, 25000);

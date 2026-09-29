@@ -33,7 +33,7 @@ function calculateElapsedMinute(matchDate, status) {
   const start = new Date(matchDate).getTime();
   const now = Date.now();
   const diffMinutes = Math.floor((now - start) / (60 * 1000));
-  if (diffMinutes < 0) return 'TBD';
+  if (diffMinutes <= 0) return "1'";
   if (diffMinutes <= 45) return `${Math.max(1, diffMinutes)}'`;
   if (diffMinutes <= 60) return 'HT';
   if (diffMinutes <= 105) return `${diffMinutes - 15}'`;

@@ -31,7 +31,7 @@ function calculateElapsedMinute(matchDate, status) {
   const start = new Date(matchDate).getTime();
   const now = Date.now();
   const diffMinutes = Math.floor((now - start) / (60 * 1000));
-  if (diffMinutes < 0) return 'TBD';
+  if (diffMinutes <= 0) return "1'";
   if (diffMinutes <= 45) return `${Math.max(1, diffMinutes)}'`;
   if (diffMinutes <= 60) return 'HT';
   if (diffMinutes <= 105) return `${diffMinutes - 15}'`;
@@ -456,7 +456,7 @@ async function saveApiMatchToDb(formattedMatch, rawItem) {
     // 3. Upsert match in DB
     await pool.query(
       `INSERT INTO match (match_id, season_id, home_team_id, away_team_id, match_date, venue, status, home_score, away_score)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       VALUES ($1, $2, $3, $4, ($5::timestamptz AT TIME ZONE 'UTC'), $6, $7, $8, $9)
        ON CONFLICT (match_id) DO UPDATE SET
          season_id = EXCLUDED.season_id,
          home_team_id = EXCLUDED.home_team_id,

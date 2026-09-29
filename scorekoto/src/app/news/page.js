@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/Icon";
 
 const CATEGORIES = [
@@ -20,7 +20,7 @@ export default function NewsHubPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchNewsArticles = useCallback(async (forceRefresh = false) => {
+  const fetchNewsArticles = async (forceRefresh = false) => {
     try {
       if (forceRefresh) setRefreshing(true);
       else setLoading(true);
@@ -43,14 +43,14 @@ export default function NewsHubPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCategory, search]);
+  };
 
   useEffect(() => {
     const handler = setTimeout(() => {
       fetchNewsArticles(false);
     }, 200);
     return () => clearTimeout(handler);
-  }, [fetchNewsArticles]);
+  }, [selectedCategory, search]);
 
   return (
     <div className="news-hub-page">

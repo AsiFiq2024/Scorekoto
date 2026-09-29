@@ -15,13 +15,23 @@ const SCOREBOARD_EVENT_TYPES = new Set([
   "red-card",
 ]);
 
+function formatBDTime(date = new Date()) {
+  return (
+    new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Dhaka",
+    }).format(date) + " BST"
+  );
+}
+
 export default function MatchDetailClient({ initialMatch, initialLineup }) {
   const [match, setMatch] = useState(initialMatch);
   const [lineup, setLineup] = useState(initialLineup);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(() => {
-    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  });
+  const [lastUpdated, setLastUpdated] = useState(() => formatBDTime());
   const [feedbackMsg, setFeedbackMsg] = useState("");
 
   const matchId = match?.id;
@@ -49,8 +59,7 @@ export default function MatchDetailClient({ initialMatch, initialLineup }) {
         if (data.lineup) {
           setLineup(data.lineup);
         }
-        const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        setLastUpdated(timeStr);
+        setLastUpdated(formatBDTime());
         if (manual) {
           setFeedbackMsg(data.providerMessage || "Live data updated!");
           setTimeout(() => setFeedbackMsg(""), 3500);
@@ -97,7 +106,7 @@ export default function MatchDetailClient({ initialMatch, initialLineup }) {
     }, 60000);
 
     return () => clearInterval(ticker);
-  }, [isLive, match?.status, match?.minute]);
+  }, [isLive, match?.status]);
 
   const homeLogo = match.homeLogo;
   const awayLogo = match.awayLogo;

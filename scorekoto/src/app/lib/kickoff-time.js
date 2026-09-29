@@ -11,14 +11,19 @@ export function hasKnownKickoffTime(matchDate, status) {
   return !Number.isNaN(kickoff.getTime());
 }
 
-export function formatKickoffTime(matchDate, status) {
+export function formatKickoffTime(matchDate, status, showTimezone = true) {
   if (!hasKnownKickoffTime(matchDate, status)) {
     return "TBD";
   }
 
   const kickoff = new Date(matchDate);
-  return new Intl.DateTimeFormat(undefined, {
+  // Format in Bangladesh Standard Time (BST, Asia/Dhaka - UTC+6)
+  const formattedTime = new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Dhaka",
   }).format(kickoff);
+
+  return showTimezone ? `${formattedTime} BST` : formattedTime;
 }

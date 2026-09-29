@@ -831,7 +831,7 @@ function HeadToHead({ matches, currentMatch }) {
         {matches.map((item) => (
           <Link href={`/matches/${item.id}`} className="h2h-row" key={item.id}>
             <div>
-              <small>{new Date(item.matchDate).toLocaleDateString()} · {item.league}</small>
+              <small>{new Date(item.matchDate).toLocaleDateString("en-US", { timeZone: "Asia/Dhaka", year: "numeric", month: "short", day: "numeric" })} · {item.league}</small>
               <span>{item.homeTeam}</span>
             </div>
             <strong>{item.homeScore} - {item.awayScore}</strong>
