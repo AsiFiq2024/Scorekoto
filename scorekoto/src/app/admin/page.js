@@ -29,6 +29,10 @@ export default function AdminPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
+  // Audit Logs State
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
   // Options for dropdowns (teams, seasons)
   const [options, setOptions] = useState({ teams: [], seasons: [] });
 
@@ -141,7 +145,7 @@ export default function AdminPage() {
 
   // Fetch items based on activeTab and search
   const fetchItems = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || activeTab === "audit") return;
     try {
       setLoadingItems(true);
       const res = await fetch(`/api/admin/search?type=${activeTab}&q=${encodeURIComponent(searchQuery)}`);
@@ -169,9 +173,29 @@ export default function AdminPage() {
     }
   }, [activeTab, searchQuery, isAdmin, selectItem, isCreating]);
 
+  const fetchAuditLogs = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setLoadingAudit(true);
+      const res = await fetch("/api/admin/audit-logs");
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error("Failed to load audit logs:", err);
+    } finally {
+      setLoadingAudit(false);
+    }
+  }, [isAdmin]);
+
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    if (activeTab === "audit") {
+      fetchAuditLogs();
+    } else {
+      fetchItems();
+    }
+  }, [activeTab, fetchItems, fetchAuditLogs]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -395,10 +419,83 @@ export default function AdminPage() {
         >
           <Icon name="player" /> Players ({activeTab === "players" && items.length > 0 ? `${items.length} viewed` : "6,993 in DB"})
         </button>
+
+        <button
+          className={`admin-tab-btn ${activeTab === "audit" ? "active" : ""}`}
+          onClick={() => {
+            setActiveTab("audit");
+            setIsCreating(false);
+            setSelectedItem(null);
+          }}
+        >
+          <Icon name="shield" /> Audit Trail
+        </button>
       </div>
 
-      {/* ADMIN WORKSPACE: Left List + Right Editor */}
-      <div className="admin-workspace">
+      {/* AUDIT LOGS VIEW */}
+      {activeTab === "audit" && (
+        <section className="admin-special-card">
+          <div className="admin-special-header">
+            <div>
+              <h2><Icon name="shield" /> System Audit Trail</h2>
+              <p>Activity log tracking administrative data modifications, timestamps, and record changes.</p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchAuditLogs}
+              disabled={loadingAudit}
+              className="admin-refresh-btn"
+            >
+              <Icon name="refresh" /> {loadingAudit ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+
+          {loadingAudit ? (
+            <p className="admin-items-loading">Querying audit trail...</p>
+          ) : auditLogs.length === 0 ? (
+            <p className="admin-items-empty">No audit records logged yet.</p>
+          ) : (
+            <div className="admin-audit-table-wrapper">
+              <table className="admin-audit-table">
+                <thead>
+                  <tr>
+                    <th>Log ID</th>
+                    <th>Timestamp</th>
+                    <th>Table</th>
+                    <th>Operation</th>
+                    <th>Record ID</th>
+                    <th>Changed Data (Snapshot)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map((log) => (
+                    <tr key={`log-${log.log_id}`}>
+                      <td><strong>#{log.log_id}</strong></td>
+                      <td style={{ whiteSpace: "nowrap" }}>{log.changed_at}</td>
+                      <td><span className="admin-table-pill">{log.table_name}</span></td>
+                      <td>
+                        <span className={`admin-op-pill ${log.operation.toLowerCase()}`}>
+                          {log.operation}
+                        </span>
+                      </td>
+                      <td><code>{log.record_id}</code></td>
+                      <td>
+                        <pre className="admin-json-preview">
+                          {JSON.stringify(log.changed_data, null, 2)}
+                        </pre>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* STANDARD CRUD WORKSPACE */}
+      {(activeTab === "matches" || activeTab === "teams" || activeTab === "players") && (
+        <div className="admin-workspace">
         {/* LEFT PANEL: SEARCH & SELECT LIST */}
         <aside className="admin-list-panel">
           {/* CREATE TRIGGER BUTTON */}
@@ -1182,6 +1279,7 @@ export default function AdminPage() {
           )}
         </section>
       </div>
+      )}
     </main>
   );
 }

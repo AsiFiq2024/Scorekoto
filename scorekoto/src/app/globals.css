@@ -7506,6 +7506,213 @@ img {
   text-align: center;
   background: #111815;
   border: 1px solid #1a2721;
+  border-radius: 18px;
+  padding: 40px 24px;
+}
+
+/* ==========================================================================
+   ADMIN SPECIAL VIEWS: AUDIT LOGS & DATABASE ANALYTICS
+   ========================================================================== */
+
+.admin-special-card {
+  background: #0d1411;
+  border: 1px solid #1e2c25;
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 10px;
+}
+
+.admin-special-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.admin-special-header h2 {
+  font-size: 20px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.admin-special-header p {
+  font-size: 13.5px;
+  color: #8c9e96;
+}
+
+.admin-special-header p code {
+  color: var(--mint);
+  background: rgba(85, 230, 177, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.admin-refresh-btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #16221c;
+  color: var(--mint);
+  border: 1px solid rgba(85, 230, 177, 0.3);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.admin-refresh-btn:hover:not(:disabled) {
+  background: var(--mint);
+  color: #090e0c;
+}
+
+.admin-audit-table-wrapper {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid #1e2c25;
+}
+
+.admin-audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-audit-table th {
+  background: #111a15;
+  color: #a3b8af;
+  font-weight: 700;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid #1e2c25;
+}
+
+.admin-audit-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #16201a;
+  color: #d1ded8;
+  vertical-align: top;
+}
+
+.admin-audit-table tr:hover td {
+  background: #121c17;
+}
+
+.admin-table-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #1a2721;
+  color: #cde0d7;
+  text-transform: uppercase;
+}
+
+.admin-op-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-op-pill.insert {
+  background: rgba(85, 230, 177, 0.15);
+  color: var(--mint);
+  border: 1px solid rgba(85, 230, 177, 0.3);
+}
+
+.admin-op-pill.update {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.admin-op-pill.delete {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.admin-json-preview {
+  font-family: monospace;
+  font-size: 11px;
+  max-height: 85px;
+  overflow-y: auto;
+  background: #090e0c;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #1a2721;
+  color: #8ce3be;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.admin-analytics-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.admin-analytics-box {
+  background: #111a16;
+  border: 1px solid #1e2c25;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.admin-analytics-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-analytics-box-header h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.admin-sql-badge {
+  font-size: 11px;
+  font-weight: 750;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(85, 230, 177, 0.12);
+  color: var(--mint);
+  border: 1px solid rgba(85, 230, 177, 0.25);
+}
+
+.admin-sql-desc {
+  font-size: 12.5px;
+  color: #8c9e96;
+  margin-bottom: 14px;
+}
+
+.admin-sql-desc code {
+  color: var(--mint);
+  background: rgba(85, 230, 177, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.admin-winrate-pill {
+  color: var(--mint);
+  font-weight: 750;
+}
 
 /* -------------------------
    DARK THEME OVERRIDES
@@ -7675,9 +7882,6 @@ img {
 :root[data-theme="dark"] .stat-card {
   background: var(--surface);
   border-color: var(--border);
-}
-  border-radius: 18px;
-  padding: 40px 24px;
 }
 
 .admin-denied-box .denied-icon {
@@ -11089,71 +11293,56 @@ textarea {
   }
 }
 
-/* Final sidebar geometry: a full-page rail with a viewport-fixed inner panel. */
-.sidebar,
-.sidebar.sidebar-collapsed {
-  --sidebar-rail-width: 240px;
-  position: relative;
-  top: auto;
-  align-self: stretch;
-  width: var(--sidebar-rail-width);
-  height: auto;
-  min-height: 100%;
-  max-height: none;
-  padding: 0;
-  display: block;
-  overflow: visible;
+/* ==========================================================================
+   REUSABLE MATCH FORM BADGES (TEAM PROFILE & MATCHES)
+   ========================================================================== */
+
+.form-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffffff;
+  flex-shrink: 0;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+  user-select: none;
 }
 
-.sidebar.sidebar-collapsed {
-  --sidebar-rail-width: 84px;
+.form-badge-pill:hover {
+  transform: translateY(-1px) scale(1.08);
 }
 
-.sidebar-inner {
-  position: fixed;
-  top: var(--app-nav-height);
-  left: 0;
-  width: var(--sidebar-rail-width);
-  transition: width 220ms ease;
+.form-badge-w {
+  background: #10b981;
 }
 
-@media (max-width: 1000px) and (min-width: 781px) {
-  .sidebar {
-    --sidebar-rail-width: 210px;
-  }
-
-  .sidebar.sidebar-collapsed {
-    --sidebar-rail-width: 84px;
-  }
+.form-badge-d {
+  background: #f59e0b;
 }
 
-@media (max-width: 780px) {
-  .sidebar,
-  .sidebar.sidebar-collapsed {
-    --sidebar-rail-width: 100%;
-    position: static;
-    width: 100%;
-    min-height: 0;
-  }
+.form-badge-l {
+  background: #ef4444;
+}
 
-  .sidebar-inner,
-  .sidebar-collapsed .sidebar-inner {
-    position: static;
-    top: auto;
-    left: auto;
-    width: 100%;
-    height: auto;
-    max-height: none;
-    padding: 10px 12px;
-    flex-direction: row;
-    gap: 5px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-gutter: auto;
-  }
+.form-badge-match {
+  background: #64748b;
+}
 
-  .nav-auth-actions .nav-register-btn.nav-auth-active {
-    display: inline-flex;
-  }
+.team-recent-form-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
 
+.team-form-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }

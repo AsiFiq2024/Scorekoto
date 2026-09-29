@@ -104,6 +104,56 @@ CREATE TRIGGER trg_validate_match_score
   FOR EACH ROW
   EXECUTE FUNCTION fn_validate_match_score();
 
+-- Trigger 3: Prevent Duplicate Player Creation (Checkpoint 4 - Validation Triggers)
+-- Ensures that no duplicate player with the identical first name, last name, and team is inserted or updated.
+CREATE OR REPLACE FUNCTION fn_prevent_duplicate_player()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_existing_id INT;
+  v_team_name VARCHAR(100);
+BEGIN
+  -- For UPDATE, skip if key identifying fields haven't changed
+  IF (TG_OP = 'UPDATE') THEN
+    IF LOWER(TRIM(NEW.first_name)) = LOWER(TRIM(OLD.first_name))
+       AND LOWER(TRIM(NEW.last_name)) = LOWER(TRIM(OLD.last_name))
+       AND COALESCE(NEW.team_id, -1) = COALESCE(OLD.team_id, -1) THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  SELECT player_id INTO v_existing_id
+  FROM player
+  WHERE LOWER(TRIM(first_name)) = LOWER(TRIM(NEW.first_name))
+    AND LOWER(TRIM(last_name)) = LOWER(TRIM(NEW.last_name))
+    AND (
+      (team_id IS NULL AND NEW.team_id IS NULL)
+      OR team_id = NEW.team_id
+    )
+    AND (TG_OP = 'INSERT' OR player_id != NEW.player_id)
+  LIMIT 1;
+
+  IF v_existing_id IS NOT NULL THEN
+    IF NEW.team_id IS NOT NULL THEN
+      SELECT name INTO v_team_name FROM team WHERE team_id = NEW.team_id;
+    END IF;
+
+    RAISE EXCEPTION 'Player already exists: A player named "% %" already exists% (Player ID #%). Duplicate rejected.',
+      TRIM(NEW.first_name),
+      TRIM(NEW.last_name),
+      CASE WHEN v_team_name IS NOT NULL THEN ' in ' || v_team_name ELSE '' END,
+      v_existing_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prevent_duplicate_player ON player;
+CREATE TRIGGER trg_prevent_duplicate_player
+  BEFORE INSERT OR UPDATE ON player
+  FOR EACH ROW
+  EXECUTE FUNCTION fn_prevent_duplicate_player();
+
 
 -- ---------------------------------------------------------------------
 -- 3. PL/pgSQL FUNCTIONS (Checkpoint 5)

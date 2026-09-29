@@ -118,15 +118,28 @@ async function getPlayerDataFromDb(playerSlugOrId) {
       query = `${selectPlayer} WHERE p.player_id = $1 LIMIT 1`;
       params = [Number(decoded)];
     } else {
+      const cleanParam = decoded.replace(/-/g, ' ');
+      const words = cleanParam.split(/\s+/).filter(Boolean);
+      const lastName = words[words.length - 1] || '';
+      const firstName = words[0] || '';
+
       query = `${selectPlayer}
         WHERE LOWER(REPLACE(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), '')), ' ', '-')) = $1
            OR LOWER(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), ''))) = $1
            OR LOWER(p.last_name) = $1
+           OR (LOWER(p.last_name) = $2 AND (LOWER(p.first_name) LIKE $3 OR LOWER(p.first_name) LIKE SUBSTRING($3 FROM 1 FOR 1) || '%'))
+           OR (LOWER(CONCAT_WS(' ', p.first_name, p.last_name)) ILIKE '%' || $2 || '%')
         ORDER BY
-          CASE WHEN LOWER(REPLACE(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), '')), ' ', '-')) = $1 THEN 0 ELSE 1 END,
+          CASE 
+            WHEN LOWER(REPLACE(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), '')), ' ', '-')) = $1 THEN 0 
+            WHEN LOWER(CONCAT_WS(' ', p.first_name, NULLIF(BTRIM(p.last_name), ''))) = $1 THEN 1
+            WHEN LOWER(p.last_name) = $1 THEN 2
+            WHEN LOWER(p.last_name) = $2 THEN 3
+            ELSE 4
+          END,
           p.player_id
         LIMIT 1`;
-      params = [decoded];
+      params = [decoded, lastName, firstName + '%'];
     }
 
     const res = await pool.query(query, params);
@@ -213,6 +226,13 @@ async function getPlayerDataFromDb(playerSlugOrId) {
       stats: statSeasons[0] || null,
       statSeasons,
     };
+
+    // Query PL/pgSQL database function for career totals
+    const careerRes = await pool.query(
+      `SELECT * FROM fn_get_player_career_summary($1)`,
+      [row.id]
+    );
+    formattedPlayer.careerSummary = careerRes.rows[0] || null;
 
     const hasInternationalCompetition = teamCompetitions.some((item) =>
       INTERNATIONAL_LEAGUE_IDS.has(Number(item.id))
@@ -338,6 +358,16 @@ export default async function PlayerPage({ params }) {
             )}
             {playerData.value && (
               <span className="player-meta-badge"><Icon name="coins" /> {playerData.value}</span>
+            )}
+            {playerData.careerSummary && Number(playerData.careerSummary.total_goals) > 0 && (
+              <span className="player-meta-badge" title="Computed by PL/pgSQL function fn_get_player_career_summary">
+                ⚽ {playerData.careerSummary.total_goals} Career Goals
+              </span>
+            )}
+            {playerData.careerSummary && Number(playerData.careerSummary.total_assists) > 0 && (
+              <span className="player-meta-badge" title="Computed by PL/pgSQL function fn_get_player_career_summary">
+                🎯 {playerData.careerSummary.total_assists} Career Assists
+              </span>
             )}
           </div>
         </div>

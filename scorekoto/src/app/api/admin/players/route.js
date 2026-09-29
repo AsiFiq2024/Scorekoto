@@ -4,6 +4,22 @@ import { getAdminFromRequest } from '@/app/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+// Helper to safely cascade-delete duplicate player records without FK constraint violations
+async function deleteDuplicatePlayer(clientOrPool, playerId) {
+  await clientOrPool.query('DELETE FROM match_event WHERE player_id = $1', [playerId]);
+  await clientOrPool.query('DELETE FROM match_lineup WHERE player_id = $1', [playerId]);
+  await clientOrPool.query('UPDATE news SET player_id = NULL WHERE player_id = $1', [playerId]);
+  await clientOrPool.query('DELETE FROM player_injury WHERE player_id = $1', [playerId]);
+  await clientOrPool.query('DELETE FROM player_season_stats WHERE player_id = $1', [playerId]);
+  await clientOrPool.query('DELETE FROM team_squad_member WHERE player_id = $1', [playerId]);
+  try {
+    await clientOrPool.query('DELETE FROM user_favorite_player WHERE player_id = $1', [playerId]);
+  } catch {
+    // Ignore if table does not exist
+  }
+  await clientOrPool.query('DELETE FROM player WHERE player_id = $1', [playerId]);
+}
+
 // POST: Create a new player in PostgreSQL database
 export async function POST(request) {
   try {
@@ -45,14 +61,56 @@ export async function POST(request) {
     const cleanPhoto = photo_url ? photo_url.trim() : null;
 
     let validTeamId = null;
+    let teamName = null;
     if (team_id) {
       const parsedTeamId = parseInt(team_id, 10);
       if (!isNaN(parsedTeamId)) {
-        const teamCheck = await pool.query('SELECT team_id FROM team WHERE team_id = $1', [parsedTeamId]);
+        const teamCheck = await pool.query('SELECT team_id, name FROM team WHERE team_id = $1', [parsedTeamId]);
         if (teamCheck.rows.length > 0) {
           validTeamId = parsedTeamId;
+          teamName = teamCheck.rows[0].name;
         }
       }
+    }
+
+    // 1. Check if identical player already exists in the database
+    const existingCheckQuery = `
+      SELECT player_id, first_name, last_name, team_id, primary_position, nationality
+      FROM player
+      WHERE LOWER(TRIM(first_name)) = LOWER($1)
+        AND LOWER(TRIM(last_name)) = LOWER($2)
+        AND (($3::INT IS NULL AND team_id IS NULL) OR team_id = $3::INT)
+      ORDER BY player_id ASC;
+    `;
+    const existingRes = await pool.query(existingCheckQuery, [
+      cleanFirstName,
+      cleanLastName,
+      validTeamId,
+    ]);
+
+    if (existingRes.rows.length > 0) {
+      const primaryPlayer = existingRes.rows[0];
+      let removedCount = 0;
+
+      // Handle duplicate: if duplicate records exist, retain the primary and remove redundant copies
+      if (existingRes.rows.length > 1) {
+        for (let i = 1; i < existingRes.rows.length; i++) {
+          await deleteDuplicatePlayer(pool, existingRes.rows[i].player_id);
+          removedCount++;
+        }
+      }
+
+      const teamDescriptor = teamName ? ` in ${teamName}` : '';
+      const removalNotice = removedCount > 0 ? ` Cleaned up ${removedCount} duplicate record(s) from database.` : '';
+
+      return NextResponse.json(
+        {
+          error: `Player already exists: A player named "${cleanFirstName} ${cleanLastName}" already exists${teamDescriptor} (Player ID #${primaryPlayer.player_id}).${removalNotice} Duplicate submission rejected.`,
+          existing_player: primaryPlayer,
+          duplicates_removed: removedCount,
+        },
+        { status: 409 }
+      );
     }
 
     const insertQuery = `
@@ -88,9 +146,8 @@ export async function POST(request) {
       return result.rows[0];
     });
 
-    // Fetch team name if assigned
-    let teamName = null;
-    if (createdPlayer.team_id) {
+    // Fetch team name if assigned and not yet retrieved
+    if (createdPlayer.team_id && !teamName) {
       const teamRes = await pool.query('SELECT name FROM team WHERE team_id = $1', [createdPlayer.team_id]);
       if (teamRes.rows.length > 0) {
         teamName = teamRes.rows[0].name;
@@ -110,9 +167,10 @@ export async function POST(request) {
     );
   } catch (err) {
     console.error('Error creating player:', err);
+    const isDuplicate = err.message && (err.message.includes('Player already exists') || err.code === '23505');
     return NextResponse.json(
       { error: err.message || 'Failed to create player in database' },
-      { status: 500 }
+      { status: isDuplicate ? 409 : 500 }
     );
   }
 }

@@ -54,6 +54,26 @@ export async function PUT(request, { params }) {
 
     // Explicit transaction control: COMMIT & ROLLBACK
     const updatedPlayer = await withTransaction(async (client) => {
+      // 1. Check existing player and current team
+      const existingRes = await client.query('SELECT team_id, market_value_euros FROM player WHERE player_id = $1', [playerId]);
+      if (existingRes.rows.length === 0) {
+        throw new Error('Player not found in database');
+      }
+
+      const currentTeamId = existingRes.rows[0].team_id;
+      const newTeamId = team_id !== undefined ? parseInt(team_id, 10) : null;
+      const targetMarketValue = market_value_euros !== undefined ? parseFloat(market_value_euros) : existingRes.rows[0].market_value_euros;
+
+      // If team is being transferred to a different club, invoke PL/pgSQL Stored Procedure
+      if (newTeamId && !isNaN(newTeamId) && newTeamId !== currentTeamId) {
+        await client.query('CALL sp_transfer_player($1, $2, $3)', [
+          playerId,
+          newTeamId,
+          targetMarketValue,
+        ]);
+      }
+
+      // 2. Update remaining player attributes
       const result = await client.query(updateQuery, [
         first_name || null,
         last_name || null,
@@ -63,13 +83,9 @@ export async function PUT(request, { params }) {
         market_value_euros !== undefined ? parseFloat(market_value_euros) : null,
         weight_cm !== undefined ? parseFloat(weight_cm) : null,
         photo_url || null,
-        team_id !== undefined ? parseInt(team_id, 10) : null,
+        newTeamId !== null && !isNaN(newTeamId) ? newTeamId : null,
         playerId,
       ]);
-
-      if (result.rows.length === 0) {
-        throw new Error('Player not found in database');
-      }
 
       return result.rows[0];
     });
@@ -77,13 +93,14 @@ export async function PUT(request, { params }) {
     return NextResponse.json({
       success: true,
       message: 'Player attributes updated successfully in database',
-      player: result.rows[0],
+      player: updatedPlayer,
     });
   } catch (err) {
     console.error('Error updating player:', err);
+    const isDuplicate = err.message && (err.message.includes('Player already exists') || err.code === '23505');
     return NextResponse.json(
-      { error: 'Failed to update player attributes' },
-      { status: 500 }
+      { error: err.message || 'Failed to update player attributes' },
+      { status: isDuplicate ? 409 : 500 }
     );
   }
 }

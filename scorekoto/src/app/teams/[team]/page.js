@@ -93,6 +93,15 @@ async function getTeamDataFromDb(teamParam) {
     );
     const [managerName, squad] = await Promise.all([managerNamePromise, squadPromise]);
 
+    // Query PL/pgSQL database functions
+    const sqlFunctionsRes = await pool.query(
+      `SELECT 
+         fn_calculate_team_win_rate($1) AS win_rate,
+         fn_get_team_recent_form($1, 5) AS recent_form`,
+      [teamId]
+    );
+    const sqlFunctions = sqlFunctionsRes.rows[0] || {};
+
     // 5. Calculate Real Stats from Completed Matches
     const completedMatches = matches.filter(
       (m) => m.status === "FT" || m.status === "AET" || m.status === "PEN"
@@ -131,6 +140,8 @@ async function getTeamDataFromDb(teamParam) {
       manager: managerName || "Manager unavailable",
       history: teamRow.history || null,
       logo: teamRow.logo_url,
+      winRate: sqlFunctions.win_rate,
+      recentForm: sqlFunctions.recent_form,
     };
 
     return {
@@ -205,6 +216,25 @@ export default async function TeamPage({ params }) {
           <h1>{teamData.name}</h1>
           <p>
             {teamData.country} · {teamData.stadium}
+            {teamData.winRate !== undefined && Number(teamData.winRate) > 0 && (
+              <span> · Win Rate: <strong>{teamData.winRate}%</strong></span>
+            )}
+            {teamData.recentForm && teamData.recentForm !== 'N/A' && (
+              <span className="team-recent-form-inline">
+                {" · Form: "}
+                <span className="team-form-badges">
+                  {(teamData.recentForm.match(/[WDLwdl]/g) || []).map((ch, idx) => (
+                    <span
+                      key={idx}
+                      className={`form-badge-pill form-badge-${ch.toLowerCase()}`}
+                      title={ch.toUpperCase() === 'W' ? 'Win' : ch.toUpperCase() === 'D' ? 'Draw' : 'Loss'}
+                    >
+                      {ch.toUpperCase()}
+                    </span>
+                  ))}
+                </span>
+              </span>
+            )}
           </p>
         </div>
 
