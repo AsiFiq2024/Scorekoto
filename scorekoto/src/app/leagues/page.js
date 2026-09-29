@@ -1,5 +1,6 @@
 import Link from "next/link";
 import pool from "@/app/lib/db";
+import FavoriteButton from "@/components/FavoriteButton";
 import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
@@ -40,24 +41,32 @@ export default async function LeaguesPage() {
 
       <div className="league-grid">
         {leagues.map((league) => (
-          <Link
-            key={league.id}
-            href={`/leagues/${league.slug || league.name.toLowerCase().replaceAll(" ", "-")}`}
-            className="league-card"
-          >
-            <div className="league-icon">
-              {league.logo_url ? (
-                <img src={league.logo_url} alt={league.name} style={{ width: "36px", height: "36px", objectFit: "contain" }} />
-              ) : (
-                <Icon name="trophy" />
-              )}
-            </div>
+          <div key={league.id} className="league-card">
+            <Link
+              href={`/leagues/${league.slug || league.name.toLowerCase().replaceAll(" ", "-")}`}
+              className="league-card-link"
+            >
+              <div className="league-icon">
+                {league.logo_url ? (
+                  <img src={league.logo_url} alt={league.name} style={{ width: "36px", height: "36px", objectFit: "contain" }} />
+                ) : (
+                  <Icon name="trophy" />
+                )}
+              </div>
 
-            <div>
-              <h2>{league.name}</h2>
-              <p>{league.country || "Country unavailable"}</p>
+              <div className="league-card-info">
+                <h2>{league.name}</h2>
+                <p>{league.country || "Country unavailable"}</p>
+              </div>
+            </Link>
+
+            <div className="league-card-action">
+              <FavoriteButton
+                type="leagues"
+                id={league.slug || league.name.toLowerCase().replaceAll(" ", "-")}
+              />
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     </main>

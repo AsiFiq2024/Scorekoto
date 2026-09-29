@@ -1,38 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+import AuthShowcase from "@/components/AuthShowcase";
 import Icon from "@/components/Icon";
-import BrandLogo from "@/components/BrandLogo";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, user } = useAuth();
-
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // If already logged in, redirect based on role
   useEffect(() => {
-    if (user) {
-      if (user.role === "admin") {
-        router.push("/admin");
-      } else {
-        router.push("/");
-      }
-    }
+    if (!user) return;
+    router.push(user.role === "admin" ? "/admin" : "/");
   }, [user, router]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
 
     if (!identifier.trim() || !password) {
-      setError("Please enter your username/email and password.");
+      setError("Please enter your username or email and password.");
       return;
     }
 
@@ -41,78 +34,84 @@ export default function LoginPage() {
     setIsSubmitting(false);
 
     if (result.success) {
-      if (result.user?.role === "admin") {
-        router.push("/admin");
-      } else {
-        router.push("/");
-      }
+      router.push(result.user?.role === "admin" ? "/admin" : "/");
       router.refresh();
     } else {
-      setError(result.error || "Invalid username/email or password.");
+      setError(result.error || "Invalid username, email, or password.");
     }
   };
 
   return (
-    <main className="auth-page-container">
-      <div className="auth-card">
-        <div className="auth-header">
-          <div className="auth-logo-badge"><BrandLogo showWordmark={false} /></div>
-          <h1>Welcome Back</h1>
-          <p>
-            Log in to manage your profile, followed teams, players, and match reactions.
-          </p>
-        </div>
+    <section className="auth-page-container">
+      <div className="auth-shell">
+        <AuthShowcase variant="login" />
 
-        {error && (
-          <div className="auth-error-banner">
-            <Icon name="alert" /> {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="auth-field">
-            <label htmlFor="identifier">Username or Email</label>
-            <input
-              id="identifier"
-              type="text"
-              placeholder="Enter your username or email"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              required
-              autoFocus
-            />
+        <div className="auth-card">
+          <div className="auth-header">
+            <span className="auth-kicker">Member access</span>
+            <h1>Welcome back</h1>
+            <p>Sign in to continue to your personalized football hub.</p>
           </div>
 
-          <div className="auth-field">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+          {error && (
+            <div className="auth-error-banner" role="alert" aria-live="polite">
+              <Icon name="alert" /> {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="auth-field">
+              <label htmlFor="identifier">Username or email</label>
+              <div className="auth-input-wrap">
+                <Icon name="user" />
+                <input
+                  id="identifier"
+                  type="text"
+                  placeholder="Enter your username or email"
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  autoComplete="username"
+                  aria-invalid={Boolean(error)}
+                  required
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="auth-field">
+              <label htmlFor="password">Password</label>
+              <div className="auth-input-wrap">
+                <Icon name="lock" />
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  aria-invalid={Boolean(error)}
+                  required
+                />
+              </div>
+            </div>
+
+            <button type="submit" disabled={isSubmitting} className="auth-submit-btn">
+              {isSubmitting ? (
+                <><Icon name="loader" className="icon-spin" /> Signing in...</>
+              ) : (
+                <>Sign in <Icon name="chevronRight" /></>
+              )}
+            </button>
+          </form>
+
+          <div className="auth-footer">
+            <p>
+              Don&apos;t have an account?{" "}
+              <Link href="/register" className="auth-switch-link">Create one free</Link>
+            </p>
           </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="auth-submit-btn"
-          >
-            {isSubmitting ? "Authenticating..." : "Log In"}
-          </button>
-        </form>
-
-        <div className="auth-footer">
-          <p>
-            Don&apos;t have an account?{" "}
-            <Link href="/register" className="auth-switch-link">
-              Create an account
-            </Link>
-          </p>
         </div>
       </div>
-    </main>
+    </section>
   );
 }

@@ -24,6 +24,8 @@ export default function Navbar() {
   const isActiveLink = (href) => href === "/"
     ? pathname === "/"
     : pathname === href || pathname.startsWith(`${href}/`);
+  const isLoginPage = pathname === "/login";
+  const isRegisterPage = pathname === "/register";
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("scorekoto-theme");
@@ -101,10 +103,18 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="nav-auth-actions">
-                <Link href="/login" className="nav-login-link">
+                <Link
+                  href="/login"
+                  className={`nav-login-link${isLoginPage ? " nav-auth-active" : ""}${isRegisterPage ? " nav-auth-inactive" : ""}`}
+                  aria-current={isLoginPage ? "page" : undefined}
+                >
                   Log in
                 </Link>
-                <Link href="/register" className="nav-register-btn">
+                <Link
+                  href="/register"
+                  className={`nav-register-btn${isRegisterPage ? " nav-auth-active" : ""}${isLoginPage ? " nav-auth-inactive" : ""}`}
+                  aria-current={isRegisterPage ? "page" : undefined}
+                >
                   Sign up
                 </Link>
               </div>

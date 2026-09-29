@@ -33,32 +33,47 @@ export function FavoritesProvider({ children }) {
     setLoaded(true);
   }, []);
 
-  // Fetch favorite teams from database when user is logged in
+  // Keep database-backed favorites in sync when a user signs in.
   const fetchDbFavorites = useCallback(async () => {
     if (!user) return;
 
     try {
-      const res = await fetch("/api/favorites/teams", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.slugs) {
-          setFavorites((prev) => {
-            // Merge slugs and numeric IDs so lookups by slug or ID both work
-            const dbTeamIdentifiers = Array.from(
-              new Set([
-                ...data.slugs,
-                ...data.teamIds.map(String),
-                ...data.teamIds,
-              ])
-            );
+      const [teamsResponse, leaguesResponse] = await Promise.all([
+        fetch("/api/favorites/teams", { cache: "no-store" }),
+        fetch("/api/favorites/leagues", { cache: "no-store" }),
+      ]);
 
-            // Also keep any non-team favorites
-            return {
-              ...prev,
-              teams: dbTeamIdentifiers,
-            };
-          });
+      const updates = {};
+
+      if (teamsResponse.ok) {
+        const data = await teamsResponse.json();
+        if (data.success) {
+          updates.teams = Array.from(
+            new Set([
+              ...(data.slugs || []),
+              ...(data.teamIds || []).map(String),
+            ])
+          );
         }
+      }
+
+      if (leaguesResponse.ok) {
+        const data = await leaguesResponse.json();
+        if (data.success) {
+          updates.leagues = Array.from(
+            new Set([
+              ...(data.slugs || []),
+              ...(data.leagueIds || []).map(String),
+            ])
+          );
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setFavorites((previousFavorites) => ({
+          ...previousFavorites,
+          ...updates,
+        }));
       }
     } catch (err) {
       console.error("Failed to fetch database favorites:", err);
@@ -108,27 +123,69 @@ export function FavoritesProvider({ children }) {
       };
     });
 
-    // If logged in and the type is teams, persist directly to PostgreSQL database
-    if (user && type === "teams") {
+    const persistenceConfig = {
+      teams: {
+        endpoint: "/api/favorites/teams",
+        queryKey: "teamId",
+        createBody: { teamSlug: id, teamId: id },
+      },
+      leagues: {
+        endpoint: "/api/favorites/leagues",
+        queryKey: "leagueId",
+        createBody: { leagueSlug: id, leagueId: id },
+      },
+    }[type];
+
+    // Signed-in team and league favorites are stored in PostgreSQL.
+    if (user && persistenceConfig) {
       try {
+        let response;
         if (alreadyFavorite) {
-          // DELETE from database
-          const response = await fetch(`/api/favorites/teams?teamId=${encodeURIComponent(id)}`, {
+          response = await fetch(
+            `${persistenceConfig.endpoint}?${persistenceConfig.queryKey}=${encodeURIComponent(id)}`,
+            {
             method: "DELETE",
-          });
-          if (!response.ok) throw new Error("Failed to remove favorite team");
+            }
+          );
         } else {
-          // POST to database
-          const response = await fetch("/api/favorites/teams", {
+          response = await fetch(persistenceConfig.endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ teamSlug: id, teamId: id }),
+            body: JSON.stringify(persistenceConfig.createBody),
           });
-          if (!response.ok) throw new Error("Failed to add favorite team");
         }
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || `Failed to update favorite ${type}`);
+        }
+
+        await fetchDbFavorites();
         window.dispatchEvent(new Event("scorekoto:favorites-updated"));
       } catch (err) {
         console.error("Failed to update favorite in database:", err);
+
+        // Restore the previous UI state when persistence fails.
+        setFavorites((currentFavorites) => {
+          const currentList = currentFavorites[type] || [];
+          const strId = String(id).toLowerCase();
+
+          if (alreadyFavorite) {
+            const exists = currentList.some(
+              (item) => String(item).toLowerCase() === strId
+            );
+            return exists
+              ? currentFavorites
+              : { ...currentFavorites, [type]: [...currentList, id] };
+          }
+
+          return {
+            ...currentFavorites,
+            [type]: currentList.filter(
+              (item) => String(item).toLowerCase() !== strId
+            ),
+          };
+        });
       }
     }
   }

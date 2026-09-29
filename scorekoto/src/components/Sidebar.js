@@ -201,40 +201,42 @@ export default function Sidebar() {
       className={`sidebar${isCollapsed ? " sidebar-collapsed" : ""}`}
       aria-busy={isLoading}
     >
-      <div className="sidebar-controls">
-        <span className="sidebar-controls-label">Favorites</span>
-        <button
-          className="sidebar-toggle"
-          type="button"
-          aria-expanded={!isCollapsed}
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          onClick={() => setIsCollapsed((collapsed) => !collapsed)}
-        >
-          <CollapseIcon isCollapsed={isCollapsed} />
-        </button>
-      </div>
+      <div className="sidebar-inner">
+        <div className="sidebar-controls">
+          <span className="sidebar-controls-label">Favorites</span>
+          <button
+            className="sidebar-toggle"
+            type="button"
+            aria-expanded={!isCollapsed}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setIsCollapsed((collapsed) => !collapsed)}
+          >
+            <CollapseIcon isCollapsed={isCollapsed} />
+          </button>
+        </div>
 
-      <nav className="sidebar-navigation" aria-label="Football navigation">
-        {isLoading ? (
-          <SidebarLoading />
-        ) : (
-          <>
-            <SidebarGroup
-              title="Fav Teams"
-              items={favTeams}
-              isCollapsed={isCollapsed}
-              emptyState={favTeamsEmptyState}
-            />
-            <SidebarGroup
-              title="Fav Leagues"
-              items={favLeagues}
-              isCollapsed={isCollapsed}
-              emptyState={favLeaguesEmptyState}
-            />
-          </>
-        )}
-      </nav>
+        <nav className="sidebar-navigation" aria-label="Football navigation">
+          {isLoading ? (
+            <SidebarLoading />
+          ) : (
+            <>
+              <SidebarGroup
+                title="Fav Teams"
+                items={favTeams}
+                isCollapsed={isCollapsed}
+                emptyState={favTeamsEmptyState}
+              />
+              <SidebarGroup
+                title="Fav Leagues"
+                items={favLeagues}
+                isCollapsed={isCollapsed}
+                emptyState={favLeaguesEmptyState}
+              />
+            </>
+          )}
+        </nav>
+      </div>
     </aside>
   );
 }
