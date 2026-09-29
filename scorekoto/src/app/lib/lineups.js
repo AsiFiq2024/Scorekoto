@@ -24,10 +24,18 @@ export function mapApiSportsLineup(
 
   function getPlayerPhoto(player) {
     if (player?.id && playerProfiles.byId.has(Number(player.id))) {
-      return playerProfiles.byId.get(Number(player.id));
+      return playerProfiles.byId.get(Number(player.id)).photo;
     }
 
-    return playerProfiles.byName.get(normalizePlayerName(player?.name)) ?? null;
+    return playerProfiles.byName.get(normalizePlayerName(player?.name))?.photo ?? null;
+  }
+
+  function getPlayerPlayed(player) {
+    if (player?.id && playerProfiles.byId.has(Number(player.id))) {
+      return playerProfiles.byId.get(Number(player.id)).played;
+    }
+
+    return playerProfiles.byName.get(normalizePlayerName(player?.name))?.played ?? null;
   }
 
   function mapSingleTeam(item, defaultTeam) {
@@ -58,6 +66,7 @@ export function mapApiSportsLineup(
         number: entry.player.number ?? null,
         rating: getPlayerRating(entry.player),
         photo: entry.player.photo || getPlayerPhoto(entry.player),
+        played: getPlayerPlayed(entry.player),
       }));
 
     if (startingXI.length === 0) {
@@ -120,12 +129,17 @@ function buildPlayerProfiles(apiPlayers) {
 
   for (const team of Array.isArray(apiPlayers) ? apiPlayers : []) {
     for (const entry of Array.isArray(team?.players) ? team.players : []) {
-      const photo = entry?.player?.photo;
-      if (!photo) continue;
+      const photo = entry?.player?.photo || null;
+      const minutes = entry?.statistics?.[0]?.games?.minutes;
+      const played = minutes === null || minutes === undefined || minutes === ""
+        ? null
+        : Number(minutes) > 0;
+      if (!photo && played === null) continue;
 
-      if (entry.player?.id) byId.set(Number(entry.player.id), photo);
+      const profile = { photo, played };
+      if (entry.player?.id) byId.set(Number(entry.player.id), profile);
       const normalizedName = normalizePlayerName(entry.player?.name);
-      if (normalizedName) byName.set(normalizedName, photo);
+      if (normalizedName) byName.set(normalizedName, profile);
     }
   }
 

@@ -610,7 +610,10 @@ function SubstituteList({ lineup, events }) {
                 <PlayerMatchBadges indicators={indicators} />
               </div>
             </div>
-            <PlayerRating rating={player.rating} compact />
+            <PlayerRating
+              rating={player.played === true || indicators.length > 0 ? player.rating : null}
+              compact
+            />
           </Link>
         );
       })}
