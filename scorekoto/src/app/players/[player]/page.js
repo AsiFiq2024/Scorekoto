@@ -86,6 +86,46 @@ function buildStatSeasons(rows) {
   }));
 }
 
+async function fetchProviderPlayer(playerId) {
+  const numericId = Number(playerId);
+  const apiKey = process.env.API_SPORTS_KEY;
+  if (!Number.isInteger(numericId) || numericId <= 0 || !apiKey) return null;
+
+  try {
+    const response = await fetch(`https://v3.football.api-sports.io/players?id=${numericId}`, {
+      headers: { "x-apisports-key": apiKey },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+
+    const payload = await response.json();
+    return Array.isArray(payload?.response) ? payload.response[0] || null : null;
+  } catch (error) {
+    console.warn("Could not hydrate player profile from provider:", error.message);
+    return null;
+  }
+}
+
+function providerProfileFields(providerEntry) {
+  const providerPlayer = providerEntry?.player || {};
+  const providerStats = Array.isArray(providerEntry?.statistics)
+    ? providerEntry.statistics.find((item) => item?.team?.id) || providerEntry.statistics[0]
+    : null;
+
+  return {
+    id: providerPlayer.id || null,
+    name: providerPlayer.name || [providerPlayer.firstname, providerPlayer.lastname].filter(Boolean).join(" "),
+    position: providerStats?.games?.position || null,
+    nationality: providerPlayer.nationality || null,
+    birthDate: providerPlayer.birth?.date || null,
+    weight: providerPlayer.weight ? Number.parseFloat(providerPlayer.weight) || null : null,
+    photo: providerPlayer.photo || null,
+    teamId: providerStats?.team?.id || null,
+    teamName: providerStats?.team?.name || null,
+    teamLogo: providerStats?.team?.logo || null,
+  };
+}
+
 async function getPlayerDataFromDb(playerSlugOrId) {
   try {
     const decoded = decodeURIComponent(playerSlugOrId).trim().toLowerCase();
@@ -143,9 +183,46 @@ async function getPlayerDataFromDb(playerSlugOrId) {
     }
 
     const res = await pool.query(query, params);
-    if (res.rows.length === 0) return null;
+    let row = res.rows[0] || null;
+    const needsProviderHydration = !row || !row.photo || !row.position || !row.nationality || !row.birth_date;
+    const providerEntry = needsProviderHydration
+      ? await fetchProviderPlayer(row?.player_id || (Number.isInteger(Number(decoded)) ? Number(decoded) : null))
+      : null;
+    const provider = providerProfileFields(providerEntry);
 
-    const row = res.rows[0];
+    if (!row && !provider.id) return null;
+
+    if (!row) {
+      row = {
+        player_id: provider.id,
+        id: provider.id,
+        name: provider.name,
+        position: provider.position,
+        nationality: provider.nationality,
+        birth_date: provider.birthDate,
+        market_value_euros: null,
+        weight_cm: provider.weight,
+        transfer_history: [],
+        photo: provider.photo,
+        team_id: provider.teamId,
+        team_name: provider.teamName,
+        team_short: null,
+        team_stadium: null,
+        team_manager: null,
+        team_logo: provider.teamLogo,
+        slug: provider.name?.toLowerCase().replace(/[^a-z0-9]+/g, "-") || String(provider.id),
+      };
+    } else {
+      row.name = row.name || provider.name;
+      row.position = row.position || provider.position;
+      row.nationality = row.nationality || provider.nationality;
+      row.birth_date = row.birth_date || provider.birthDate;
+      row.weight_cm = row.weight_cm || provider.weight;
+      row.photo = row.photo || provider.photo;
+      row.team_id = row.team_id || provider.teamId;
+      row.team_name = row.team_name || provider.teamName;
+      row.team_logo = row.team_logo || provider.teamLogo;
+    }
 
     let teamCompetitions = [];
     if (row.team_id) {
@@ -214,7 +291,9 @@ async function getPlayerDataFromDb(playerSlugOrId) {
       position: row.position || null,
       team: row.team_name || null,
       nationality: row.nationality || null,
-      photo: row.photo,
+      photo: row.photo || provider.photo || (row.id
+        ? `https://media.api-sports.io/football/players/${row.id}.png`
+        : null),
       birthDate: row.birth_date,
       age: calculateAge(row.birth_date),
       weight: row.weight_cm ? `${Number(row.weight_cm)} kg` : null,

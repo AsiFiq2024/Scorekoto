@@ -7830,6 +7830,33 @@ img {
   box-shadow: var(--shadow-lg);
 }
 
+:root[data-theme="dark"] .search-section-title {
+  color: #8da69a;
+}
+
+:root[data-theme="dark"] .search-result-item {
+  color: #edf8f2;
+}
+
+:root[data-theme="dark"] .search-result-item:hover {
+  background: rgba(41, 118, 82, 0.3);
+}
+
+:root[data-theme="dark"] .search-result-icon {
+  background: rgba(105, 245, 189, 0.12);
+  color: var(--mint);
+}
+
+:root[data-theme="dark"] .search-result-details strong {
+  color: #edf8f2;
+}
+
+:root[data-theme="dark"] .search-result-details span,
+:root[data-theme="dark"] .search-result-arrow,
+:root[data-theme="dark"] .search-empty {
+  color: #9ab3a6;
+}
+
 :root[data-theme="dark"] .league-group,
 :root[data-theme="dark"] .news-sidebar,
 :root[data-theme="dark"] .date-selector,
