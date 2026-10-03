@@ -1,6 +1,7 @@
 import "server-only";
 
 import pool from "./db";
+import { fetchFromApiSports } from "./api-sports";
 
 const MANAGER_CACHE_SECONDS = 24 * 60 * 60;
 
@@ -11,33 +12,20 @@ function cleanManagerName(value) {
 export async function getTeamManagerName(teamId, storedManagerName) {
   const existingManager = cleanManagerName(storedManagerName);
   const numericTeamId = Number(teamId);
-  const apiKey = process.env.API_SPORTS_KEY;
 
-  if (!Number.isInteger(numericTeamId) || numericTeamId <= 0 || !apiKey) {
+  if (!Number.isInteger(numericTeamId) || numericTeamId <= 0) {
     return existingManager;
   }
 
   try {
-    const response = await fetch(
-      `https://v3.football.api-sports.io/coachs?team=${numericTeamId}`,
+    const { data } = await fetchFromApiSports(
+      `coachs?team=${numericTeamId}`,
       {
-        headers: {
-          "x-apisports-key": apiKey,
-          Accept: "application/json",
-        },
         next: { revalidate: MANAGER_CACHE_SECONDS },
       }
     );
 
-    if (!response.ok) {
-      console.warn(
-        `Manager lookup failed for team ${numericTeamId}: ${response.status}`
-      );
-      return existingManager;
-    }
-
-    const data = await response.json();
-    const coaches = Array.isArray(data.response) ? data.response : [];
+    const coaches = Array.isArray(data?.response) ? data.response : [];
     const today = new Date().toISOString().slice(0, 10);
     const currentCoach = coaches
       .map((coach) => {

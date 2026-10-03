@@ -8,6 +8,7 @@ import {
   shouldRefreshMatchDetails,
 } from "@/app/lib/match-details";
 import { hasKnownKickoffTime } from "@/app/lib/kickoff-time";
+import { fetchFromApiSports } from "@/app/lib/api-sports";
 import MatchDetailClient from "@/components/MatchDetailClient";
 import Link from "next/link";
 import Icon from "@/components/Icon";
@@ -37,8 +38,7 @@ function calculateElapsedMinute(matchDate, status) {
   if (diffMinutes <= 45) return `${Math.max(1, diffMinutes)}'`;
   if (diffMinutes <= 60) return 'HT';
   if (diffMinutes <= 105) return `${diffMinutes - 15}'`;
-  if (diffMinutes < 120) return "90+'";
-  return 'FT'; // Auto-stop after 120 minutes (2 hours)
+  return "90+'";
 }
 
 // 1. Fetch from PostgreSQL database
@@ -79,26 +79,7 @@ async function getMatchFromDb(matchId) {
     }
 
     const row = result.rows[0];
-    let isLiveDb = isLiveStatus(row.status);
-    let matchStatus = row.status;
-    let matchMinute = '';
-
-    if (isLiveDb) {
-      const start = row.matchDate ? new Date(row.matchDate).getTime() : 0;
-      const diffMinutes = start ? Math.floor((Date.now() - start) / (60 * 1000)) : 0;
-      if (diffMinutes >= 120) {
-        isLiveDb = false;
-        matchStatus = 'FT';
-        matchMinute = 'FT';
-        pool.query(`UPDATE match SET status = 'FT' WHERE match_id = $1`, [row.id]).catch(() => {});
-      } else {
-        matchMinute = calculateElapsedMinute(row.matchDate, row.status);
-      }
-    } else if (row.status === 'HT') {
-      matchMinute = 'HT';
-    } else if (['NS', 'UPCOMING', 'TBD', 'TIMED', 'PST'].includes(String(row.status).toUpperCase())) {
-      matchMinute = hasKnownKickoffTime(row.matchDate, row.status) ? null : 'TBD';
-    }
+    const isLiveDb = isLiveStatus(row.status);
 
     return {
       id: row.id,
@@ -114,9 +95,15 @@ async function getMatchFromDb(matchId) {
       awayPossession: row.awayPossession === null ? null : Number(row.awayPossession),
       homeRating: row.homeRating === null ? null : Number(row.homeRating),
       awayRating: row.awayRating === null ? null : Number(row.awayRating),
-      status: matchStatus,
-      providerStatus: matchStatus,
-      minute: matchMinute,
+      status: row.status,
+      providerStatus: row.status,
+      minute: isLiveDb
+        ? calculateElapsedMinute(row.matchDate, row.status)
+        : row.status === 'HT'
+        ? 'HT'
+        : ['NS', 'UPCOMING', 'TBD', 'TIMED', 'PST'].includes(String(row.status).toUpperCase())
+        ? hasKnownKickoffTime(row.matchDate, row.status) ? null : 'TBD'
+        : '',
       league: row.league,
       venue: row.venue || row.stadium,
       matchDate: row.matchDate,
@@ -131,33 +118,14 @@ async function getMatchFromDb(matchId) {
 
 // 2. Fetch live/external fixture from API-Sports
 async function getMatchFromApiSports(matchId) {
-  const apiKey = process.env.API_SPORTS_KEY;
-  if (!apiKey) return null;
-
   try {
-    const res = await fetch(
-      `https://v3.football.api-sports.io/fixtures?id=${matchId}`,
-      {
-        headers: {
-          "x-apisports-key": apiKey,
-          Accept: "application/json",
-        },
-        next: { revalidate: 3600 },
-      }
-    );
+    const { data, error } = await fetchFromApiSports(`fixtures?id=${matchId}`, {
+      next: { revalidate: 3600 },
+    });
 
-    if (!res.ok) {
-      console.warn(`API-Sports HTTP ${res.status}. Falling back to PostgreSQL database.`);
-      await recordMatchDetailAttempt(matchId, `HTTP ${res.status}`).catch(() => {});
-      return null;
-    }
-
-    const data = await res.json();
-
-    if (data.errors && Object.keys(data.errors).length > 0) {
-      const errMsg = Object.values(data.errors).join(", ");
-      console.warn("API-Sports quota/token notice:", errMsg, "-> Falling back to PostgreSQL database.");
-      await recordMatchDetailAttempt(matchId, errMsg).catch(() => {});
+    if (error || !data) {
+      console.warn("API-Sports notice:", error, "-> Falling back to PostgreSQL database.");
+      await recordMatchDetailAttempt(matchId, error || "Provider error").catch(() => {});
       return null;
     }
 

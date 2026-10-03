@@ -1,6 +1,7 @@
 import "server-only";
 
 import pool from "./db";
+import { fetchFromApiSports } from "./api-sports";
 
 const COMPLETED_STATUSES = ["FT", "AET", "PEN"];
 let playerSeasonSchemaPromise;
@@ -41,21 +42,11 @@ function statisticSignature(statistics) {
 }
 
 async function fetchFootballData(path, revalidate) {
-  const apiKey = process.env.API_SPORTS_KEY;
-  if (!apiKey) return null;
-
-  const response = await fetch(`https://v3.football.api-sports.io/${path}`, {
-    headers: {
-      "x-apisports-key": apiKey,
-      Accept: "application/json",
-    },
+  const { data } = await fetchFromApiSports(path, {
     next: { revalidate },
   });
 
-  if (!response.ok) return null;
-
-  const data = await response.json();
-  return Array.isArray(data.response) ? data.response : [];
+  return Array.isArray(data?.response) ? data.response : [];
 }
 
 async function storeStandings(seasonId, standings) {

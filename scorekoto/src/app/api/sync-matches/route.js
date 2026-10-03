@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool from '../../lib/db';
+import { fetchFromApiSports } from '../../lib/api-sports';
 
 // Processes batches of unsynchronized league-seasons (2022+) to sync teams and match fixtures
 export async function GET() {
@@ -48,8 +49,6 @@ export async function GET() {
     let totalMatchesAdded = 0;
     let processedCount = 0;
 
-    const apiKey = process.env.API_SPORTS_KEY;
-
     for (const item of currentBatch) {
       const { season_id, league_id, year, league_name } = item;
       const seasonYear = year.split('-')[0];
@@ -58,25 +57,19 @@ export async function GET() {
 
       // Fetch and upsert teams participating in this league-season
       try {
-        const teamsRes = await fetch(`https://v3.football.api-sports.io/teams?league=${league_id}&season=${seasonYear}`, {
-          method: 'GET',
-          headers: {
-            'x-apisports-key': apiKey,
-            'Accept': 'application/json'
-          }
-        });
+        const { data: teamsData, quotaReached: teamsQuotaReached } = await fetchFromApiSports(
+          `teams?league=${league_id}&season=${seasonYear}`
+        );
 
-        if (teamsRes.status === 429) {
+        if (teamsQuotaReached) {
           return NextResponse.json({ 
             success: false, 
             status: 'paused', 
-            message: 'API Speed limit reached. Pause for 60 seconds before next batch.' 
+            message: 'API quota reached across all keys. Pause before next batch.' 
           });
         }
-
-        const teamsData = await teamsRes.json();
         
-        if (teamsData.response && teamsData.response.length > 0) {
+        if (teamsData?.response && teamsData.response.length > 0) {
           for (const tItem of teamsData.response) {
             const t = tItem.team;
             const venue = tItem.venue;
@@ -100,26 +93,20 @@ export async function GET() {
 
       // Fetch and upsert fixtures and match results for this league-season
       try {
-        const fixturesRes = await fetch(`https://v3.football.api-sports.io/fixtures?league=${league_id}&season=${seasonYear}`, {
-          method: 'GET',
-          headers: {
-            'x-apisports-key': apiKey,
-            'Accept': 'application/json'
-          }
-        });
+        const { data: fixturesData, quotaReached: fixturesQuotaReached } = await fetchFromApiSports(
+          `fixtures?league=${league_id}&season=${seasonYear}`
+        );
 
-        if (fixturesRes.status === 429) {
+        if (fixturesQuotaReached) {
           return NextResponse.json({ 
             success: false, 
             status: 'paused', 
-            message: 'API Speed limit reached. Pause for 60 seconds before next batch.' 
+            message: 'API quota reached across all keys. Pause before next batch.' 
           });
         }
 
-        const fixturesData = await fixturesRes.json();
-
         // Skip restricted seasons on free tier
-        if (fixturesData.errors && fixturesData.errors.plan) {
+        if (fixturesData?.errors?.plan) {
           console.log(`Plan limit skip for ${league_name} ${year}:`, fixturesData.errors.plan);
           await pool.query(
             `INSERT INTO Processed_Seasons (season_id) VALUES ($1) ON CONFLICT DO NOTHING`,
