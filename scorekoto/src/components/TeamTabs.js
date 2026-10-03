@@ -394,6 +394,7 @@ function TeamMatch({ match }) {
           <img
             src={match.homeLogo}
             alt=""
+            className="entity-logo"
             style={{ width: "20px", height: "20px", objectFit: "contain" }}
             onError={(e) => {
               e.currentTarget.style.display = "none";
@@ -423,6 +424,7 @@ function TeamMatch({ match }) {
           <img
             src={match.awayLogo}
             alt=""
+            className="entity-logo"
             style={{ width: "20px", height: "20px", objectFit: "contain" }}
             onError={(e) => {
               e.currentTarget.style.display = "none";

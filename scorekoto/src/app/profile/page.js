@@ -396,7 +396,7 @@ export default function ProfilePage() {
                   <div key={team.team_id || team.id} className="profile-fav-row">
                     <Link href={`/teams/${team.slug || team.name.toLowerCase().replaceAll(" ", "-")}`} className="fav-row-link">
                       {team.logo_url || team.logo ? (
-                        <img src={team.logo_url || team.logo} alt={team.name} className="fav-row-img" />
+                        <img src={team.logo_url || team.logo} alt={team.name} className="fav-row-img entity-logo" />
                       ) : (
                         <div className="fav-row-placeholder">{team.name?.charAt(0)}</div>
                       )}

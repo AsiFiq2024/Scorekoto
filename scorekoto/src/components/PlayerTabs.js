@@ -172,7 +172,7 @@ export default function PlayerTabs({
                         {team ? (
                             <Link href={`/teams/${team.id || team.slug}`} className="player-club-card">
                                 {team.logo ? (
-                                    <img src={team.logo} alt={`${team.name} logo`} className="player-club-logo" />
+                                    <img src={team.logo} alt={`${team.name} logo`} className="player-club-logo entity-logo" />
                                 ) : (
                                     <div className="player-club-placeholder">
                                         <Icon name="football" />
@@ -316,7 +316,7 @@ function PlayerMatch({ match }) {
     return (
         <Link href={`/matches/${match.id}`} className="team-match">
             <span className="team-match-team home-team">
-                {match.homeLogo && <img src={match.homeLogo} alt="" className="player-match-logo" />}
+                {match.homeLogo && <img src={match.homeLogo} alt="" className="player-match-logo entity-logo" />}
                 {match.homeTeam}
             </span>
 
@@ -331,7 +331,7 @@ function PlayerMatch({ match }) {
 
             <span className="team-match-team away-team">
                 {match.awayTeam}
-                {match.awayLogo && <img src={match.awayLogo} alt="" className="player-match-logo" />}
+                {match.awayLogo && <img src={match.awayLogo} alt="" className="player-match-logo entity-logo" />}
             </span>
         </Link>
     );
@@ -341,7 +341,7 @@ function CompetitionStats({ competition }) {
     return (
         <article className="player-competition-card">
             <div className="player-competition-heading">
-                {competition.logo && <img src={competition.logo} alt="" />}
+                {competition.logo && <img src={competition.logo} alt="" className="entity-logo" />}
                 <div>
                     <strong>{competition.name}</strong>
                     <span>

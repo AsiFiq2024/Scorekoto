@@ -341,6 +341,7 @@ export default async function LeaguePage({ params, searchParams }) {
             <img
               src={leagueData.logo_url}
               alt={leagueData.name}
+              className="entity-logo"
               style={{ width: "48px", height: "48px", objectFit: "contain" }}
             />
           ) : (
@@ -348,7 +349,8 @@ export default async function LeaguePage({ params, searchParams }) {
           )}
         </div>
 
-        <div>
+        <div className="league-identity">
+          <span className="league-kicker">Competition</span>
           <h1>{leagueData.name}</h1>
           <p>
             {leagueData.country || "Country unavailable"} · {leagueData.season || "Season unavailable"}

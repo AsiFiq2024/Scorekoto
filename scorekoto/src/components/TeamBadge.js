@@ -18,7 +18,7 @@ export default function TeamBadge({ team }) {
                 <img
                     src={logoUrl}
                     alt={`${team.name || "Team"} logo`}
-                    className="team-logo"
+                    className="team-logo entity-logo"
                     onError={() => setImgError(true)}
                     loading="lazy"
                 />
@@ -31,4 +31,4 @@ export default function TeamBadge({ team }) {
             <span>{team.name}</span>
         </div>
     );
-}
+}

@@ -169,7 +169,7 @@ export function TeamCompareView({ currentTeam, initialOpponentId = null }) {
                     <img
                       src={opp.logo}
                       alt=""
-                      className="chip-logo"
+                      className="chip-logo entity-logo"
                       onError={(e) => { e.currentTarget.style.display = "none"; }}
                     />
                   )}
@@ -207,7 +207,7 @@ export function TeamCompareView({ currentTeam, initialOpponentId = null }) {
           <div className="compare-hero-banner">
             <div className="hero-team hero-team-left">
               {team1.logo ? (
-                <img src={team1.logo} alt={team1.name} className="hero-logo" />
+                <img src={team1.logo} alt={team1.name} className="hero-logo entity-logo" />
               ) : (
                 <div className="hero-logo-fallback">{team1.name?.charAt(0)}</div>
               )}
@@ -228,7 +228,7 @@ export function TeamCompareView({ currentTeam, initialOpponentId = null }) {
                 <span>{team2.stadium || team2.country || "Opponent"}</span>
               </div>
               {team2.logo ? (
-                <img src={team2.logo} alt={team2.name} className="hero-logo" />
+                <img src={team2.logo} alt={team2.name} className="hero-logo entity-logo" />
               ) : (
                 <div className="hero-logo-fallback">{team2.name?.charAt(0)}</div>
               )}
@@ -366,7 +366,7 @@ export function TeamCompareView({ currentTeam, initialOpponentId = null }) {
                   {/* TEAM 1 STANDINGS */}
                   <div className="team-standing-card">
                     <div className="standing-card-header">
-                      {team1.logo && <img src={team1.logo} alt="" className="standing-logo" />}
+                      {team1.logo && <img src={team1.logo} alt="" className="standing-logo entity-logo" />}
                       <div>
                         <h4>{team1.name}</h4>
                         <span className="standing-rank-badge">
@@ -428,7 +428,7 @@ export function TeamCompareView({ currentTeam, initialOpponentId = null }) {
                   {/* TEAM 2 STANDINGS */}
                   <div className="team-standing-card">
                     <div className="standing-card-header">
-                      {team2.logo && <img src={team2.logo} alt="" className="standing-logo" />}
+                      {team2.logo && <img src={team2.logo} alt="" className="standing-logo entity-logo" />}
                       <div>
                         <h4>{team2.name}</h4>
                         <span className="standing-rank-badge">
@@ -508,7 +508,7 @@ export function TeamCompareView({ currentTeam, initialOpponentId = null }) {
               {/* TEAM 1 SCORERS */}
               <div className="compare-scorers-column">
                 <div className="column-team-heading">
-                  {team1.logo && <img src={team1.logo} alt="" className="column-logo" />}
+                  {team1.logo && <img src={team1.logo} alt="" className="column-logo entity-logo" />}
                   <h4>{team1.name} Attack Leaders</h4>
                 </div>
 
@@ -539,7 +539,7 @@ export function TeamCompareView({ currentTeam, initialOpponentId = null }) {
               {/* TEAM 2 SCORERS */}
               <div className="compare-scorers-column">
                 <div className="column-team-heading">
-                  {team2.logo && <img src={team2.logo} alt="" className="column-logo" />}
+                  {team2.logo && <img src={team2.logo} alt="" className="column-logo entity-logo" />}
                   <h4>{team2.name} Attack Leaders</h4>
                 </div>
 

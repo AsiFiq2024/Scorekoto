@@ -120,6 +120,7 @@ export default function TeamsPage() {
                       <img
                         src={team.logo_url}
                         alt=""
+                        className="entity-logo"
                         onError={(event) => {
                           event.currentTarget.style.display = "none";
                           event.currentTarget.nextElementSibling?.removeAttribute("hidden");

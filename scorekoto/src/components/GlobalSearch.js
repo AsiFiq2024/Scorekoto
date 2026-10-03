@@ -138,7 +138,7 @@ export default function GlobalSearch() {
                 >
                   <div className="search-result-icon">
                     {team.logo_url ? (
-                      <img src={team.logo_url} alt="" style={{ width: 26, height: 26, objectFit: "contain" }} />
+                      <img src={team.logo_url} alt="" className="entity-logo" style={{ width: 26, height: 26, objectFit: "contain" }} />
                     ) : (
                       team.name.charAt(0)
                     )}
@@ -166,7 +166,7 @@ export default function GlobalSearch() {
                 >
                   <div className="search-result-icon">
                     {league.logo_url ? (
-                      <img src={league.logo_url} alt="" style={{ width: 24, height: 24, objectFit: "contain" }} />
+                      <img src={league.logo_url} alt="" className="entity-logo" style={{ width: 24, height: 24, objectFit: "contain" }} />
                     ) : (
                       <Icon name="trophy" />
                     )}

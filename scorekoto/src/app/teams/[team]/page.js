@@ -199,7 +199,7 @@ export default async function TeamPage({ params }) {
           <img
             src={teamData.logo}
             alt={`${teamData.name} logo`}
-            className="team-page-logo"
+            className="team-page-logo entity-logo"
           />
         ) : (
           <div className="team-logo"><Icon name="football" /></div>

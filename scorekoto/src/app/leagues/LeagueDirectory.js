@@ -77,7 +77,7 @@ export default function LeagueDirectory({ leagues, countryCount }) {
               <article key={league.id} className={styles.directoryCard}>
                 <Link href={`/leagues/${slug}`} className={styles.cardLink}>
                   <div className={`${styles.badge} ${styles.leagueBadge}`}>
-                    {league.logo_url ? <img src={league.logo_url} alt="" /> : <Icon name="trophy" />}
+                    {league.logo_url ? <img src={league.logo_url} alt="" className={styles.leagueLogo} /> : <Icon name="trophy" />}
                   </div>
 
                   <div className={styles.cardBody}>

@@ -160,7 +160,7 @@ export default function FavoritesPage() {
                 <img
                   src={team.logo_url || team.logo}
                   alt={`${team.name} logo`}
-                  className="favorite-card-logo"
+                  className="favorite-card-logo entity-logo"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                   }}
@@ -235,7 +235,7 @@ export default function FavoritesPage() {
                 <img
                   src={league.logo_url}
                   alt={league.name}
-                  className="favorite-card-logo"
+                  className="favorite-card-logo entity-logo"
                   style={{ objectFit: "contain" }}
                   onError={(e) => {
                     e.currentTarget.style.display = "none";

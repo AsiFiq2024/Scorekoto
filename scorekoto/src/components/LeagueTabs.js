@@ -39,8 +39,10 @@ export default function LeagueTabs({
     return (
         <>
             {/* TABS */}
-            <div className="league-tabs">
+            <div className="league-tabs" role="group" aria-label="League sections">
                 <button
+                    type="button"
+                    aria-pressed={activeTab === "overview"}
                     className={activeTab === "overview" ? "active-tab" : ""}
                     onClick={() => setActiveTab("overview")}
                 >
@@ -48,6 +50,8 @@ export default function LeagueTabs({
                 </button>
 
                 <button
+                    type="button"
+                    aria-pressed={activeTab === "matches"}
                     className={activeTab === "matches" ? "active-tab" : ""}
                     onClick={() => setActiveTab("matches")}
                 >
@@ -55,6 +59,8 @@ export default function LeagueTabs({
                 </button>
 
                 <button
+                    type="button"
+                    aria-pressed={activeTab === "standings"}
                     className={activeTab === "standings" ? "active-tab" : ""}
                     onClick={() => setActiveTab("standings")}
                 >
@@ -62,6 +68,8 @@ export default function LeagueTabs({
                 </button>
 
                 <button
+                    type="button"
+                    aria-pressed={activeTab === "teams"}
                     className={activeTab === "teams" ? "active-tab" : ""}
                     onClick={() => setActiveTab("teams")}
                 >
@@ -69,6 +77,8 @@ export default function LeagueTabs({
                 </button>
 
                 <button
+                    type="button"
+                    aria-pressed={activeTab === "scorers"}
                     className={activeTab === "scorers" ? "active-tab" : ""}
                     onClick={() => setActiveTab("scorers")}
                 >
@@ -76,6 +86,8 @@ export default function LeagueTabs({
                 </button>
 
                 <button
+                    type="button"
+                    aria-pressed={activeTab === "statistics"}
                     className={activeTab === "statistics" ? "active-tab" : ""}
                     onClick={() => setActiveTab("statistics")}
                 >
@@ -83,6 +95,8 @@ export default function LeagueTabs({
                 </button>
 
                 <button
+                    type="button"
+                    aria-pressed={activeTab === "news"}
                     className={activeTab === "news" ? "active-tab" : ""}
                     onClick={() => setActiveTab("news")}
                 >
@@ -217,7 +231,7 @@ export default function LeagueTabs({
             {/* STANDINGS */}
             {activeTab === "standings" && (
                 <section className="league-section">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+                    <div className="league-section-heading">
                         <h2>Standings</h2>
                         <SeasonSelector
                             availableSeasons={availableSeasons}
@@ -250,7 +264,7 @@ export default function LeagueTabs({
                                     <img
                                         src={team.logo}
                                         alt={`${team.name} logo`}
-                                        className="league-team-logo"
+                                        className="league-team-logo entity-logo"
                                     />
                                 ) : (
                                     <div className="league-team-placeholder">
@@ -271,10 +285,10 @@ export default function LeagueTabs({
             {/* TOP SCORERS */}
             {activeTab === "scorers" && (
                 <section className="league-section">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
-                        <div>
+                    <div className="league-section-heading">
+                        <div className="league-section-title">
                             <h2>Top Scorers</h2>
-                            <p style={{ color: "var(--muted)", fontSize: "12.5px", margin: "4px 0 0" }}>
+                            <p className="league-section-description">
                                 Attacking leaders ranked by goals &amp; assists
                             </p>
                         </div>
@@ -328,6 +342,7 @@ export default function LeagueTabs({
                                                         <img
                                                             src={scorer.teamLogo}
                                                             alt=""
+                                                            className="entity-logo"
                                                             style={{ width: "14px", height: "14px", objectFit: "contain" }}
                                                             onError={(e) => { e.currentTarget.style.display = "none"; }}
                                                         />
@@ -437,16 +452,15 @@ function LeagueNewsTab({ leagueName }) {
 
     return (
         <section className="league-section">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+            <div className="league-section-heading">
                 <h2>{leagueName} News & Headlines</h2>
                 <button
                     type="button"
-                    className="btn btn-secondary"
+                    className="btn btn-secondary league-news-refresh"
                     onClick={() => loadNews(true)}
                     disabled={loading || refreshing}
-                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 14px", fontSize: "13px" }}
                 >
-                    <span style={{ display: "inline-block", transform: refreshing ? "rotate(180deg)" : "none", transition: "transform 300ms ease" }}>
+                    <span className={refreshing ? "league-refresh-icon is-refreshing" : "league-refresh-icon"}>
                         <Icon name="refresh" />
                     </span>
                     {refreshing ? "Refreshing..." : "Refresh News"}
@@ -454,34 +468,34 @@ function LeagueNewsTab({ leagueName }) {
             </div>
 
             {loading && news.length === 0 ? (
-                <p style={{ color: "var(--muted)", padding: "24px 0" }}>Loading latest {leagueName} articles...</p>
+                <p className="league-news-status">Loading latest {leagueName} articles...</p>
             ) : news.length === 0 ? (
                 <p className="empty-message">No recent articles found for {leagueName}.</p>
             ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: "16px" }}>
+                <div className="league-news-grid">
                     {news.map((item) => (
-                        <article key={item.id} className="news-card" style={{ background: "var(--surface)", borderRadius: "12px", border: "1px solid var(--border)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                        <article key={item.id} className="news-card league-news-card">
                             {item.image && (
                                 <img
                                     src={item.image}
                                     alt=""
-                                    style={{ width: "100%", height: "160px", objectFit: "cover" }}
+                                    className="league-news-image"
                                     onError={(e) => { e.currentTarget.style.display = "none"; }}
                                 />
                             )}
-                            <div style={{ padding: "14px", display: "flex", flexDirection: "column", flex: 1 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)", marginBottom: "8px" }}>
-                                    <span style={{ color: "var(--mint)", fontWeight: "700" }}>{item.category}</span>
-                                    <span>{item.time}</span>
+                            <div className="league-news-content">
+                                <div className="league-news-meta">
+                                    <span>{item.category}</span>
+                                    <time>{item.time}</time>
                                 </div>
-                                <h3 style={{ margin: "0 0 8px", fontSize: "14.5px", lineHeight: "1.4", color: "var(--foreground)" }}>{item.title}</h3>
+                                <h3>{item.title}</h3>
                                 {item.description && (
-                                    <p style={{ margin: "0 0 12px", fontSize: "12.5px", color: "var(--muted)", lineHeight: "1.4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                    <p className="league-news-description">
                                         {item.description}
                                     </p>
                                 )}
                                 {item.url && (
-                                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ marginTop: "auto", fontSize: "12.5px", fontWeight: "700", color: "var(--mint)", textDecoration: "none" }}>
+                                    <a href={item.url} target="_blank" rel="noopener noreferrer">
                                         Read Full Story ↗
                                     </a>
                                 )}
@@ -497,50 +511,61 @@ function LeagueNewsTab({ leagueName }) {
 function LeagueInfo({ label, value }) {
     return (
         <div className="league-info-card">
-            <span>{label}</span>
-            <strong>{value}</strong>
+            <span className="league-info-label">{label}</span>
+            <strong>{value ?? "—"}</strong>
         </div>
     );
 }
 
 function LeagueMatchRow({ match }) {
     const isUpcoming = ["UPCOMING", "NS", "TBD", "TIMED", "PST"].includes(match.status);
+    const isLive = ["LIVE", "1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT"].includes(match.status);
+    const statusLabel = isLive
+        ? "Live"
+        : isUpcoming
+            ? "Kick-off"
+            : match.status === "AET" || match.status === "PEN"
+                ? "After extra time"
+                : "Full time";
 
     return (
         <Link
             href={`/matches/${match.id}`}
             className="league-match"
         >
-            <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span className="league-match-team league-match-home">
                 {match.homeLogo && (
                     <img
                         src={match.homeLogo}
                         alt=""
-                        style={{ width: "22px", height: "22px", objectFit: "contain" }}
+                        className="entity-logo"
                         onError={(e) => { e.currentTarget.style.display = "none"; }}
                     />
                 )}
-                {match.homeTeam}
+                <span>{match.homeTeam}</span>
             </span>
 
-            <strong>
-                {isUpcoming
-                    ? (
-                        <LocalKickoffTime
-                            matchDate={match.matchDate}
-                            status={match.providerStatus || match.status}
-                        />
-                    )
-                    : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
-            </strong>
+            <span className={`league-match-center${isLive ? " is-live" : ""}`}>
+                <strong>
+                    {isUpcoming
+                        ? (
+                            <LocalKickoffTime
+                                matchDate={match.matchDate}
+                                status={match.providerStatus || match.status}
+                            />
+                        )
+                        : `${match.homeScore ?? "-"} - ${match.awayScore ?? "-"}`}
+                </strong>
+                <small>{statusLabel}</small>
+            </span>
 
-            <span style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end" }}>
-                {match.awayTeam}
+            <span className="league-match-team league-match-away">
+                <span>{match.awayTeam}</span>
                 {match.awayLogo && (
                     <img
                         src={match.awayLogo}
                         alt=""
-                        style={{ width: "22px", height: "22px", objectFit: "contain" }}
+                        className="entity-logo"
                         onError={(e) => { e.currentTarget.style.display = "none"; }}
                     />
                 )}
@@ -577,6 +602,7 @@ function StandingsTable({ standings }) {
                                 <img
                                     src={team.logo}
                                     alt=""
+                                    className="entity-logo"
                                     style={{ width: "22px", height: "22px", objectFit: "contain" }}
                                     onError={(e) => { e.currentTarget.style.display = "none"; }}
                                 />
@@ -595,20 +621,20 @@ function StandingsTable({ standings }) {
                                 )}
                             </span>
                         </span>
-                        <span>{team.played}</span>
-                        <span>{team.wins ?? "—"}</span>
-                        <span>{team.draws ?? "—"}</span>
-                        <span>{team.losses ?? "—"}</span>
-                        <span>{team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference}</span>
-                        <strong className="standing-pts-cell">{team.points}</strong>
-                        <span>
+                        <span data-label="P">{team.played}</span>
+                        <span data-label="W">{team.wins ?? "—"}</span>
+                        <span data-label="D">{team.draws ?? "—"}</span>
+                        <span data-label="L">{team.losses ?? "—"}</span>
+                        <span data-label="GD">{team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference}</span>
+                        <strong className="standing-pts-cell" data-label="Pts">{team.points}</strong>
+                        <span data-label="Win %">
                             {team.winRate ? (
                                 <span className="standing-winrate-tag">{team.winRate}%</span>
                             ) : (
                                 "—"
                             )}
                         </span>
-                        <span className="standing-form-badges">
+                        <span className="standing-form-badges" data-label="Form">
                             {team.form && team.form !== "N/A" ? (
                                 (team.form.match(/[WDLwdl]/g) || []).map((ch, idx) => (
                                     <span

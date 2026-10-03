@@ -9,7 +9,11 @@ import Icon from "./Icon";
 import BrandLogo from "./BrandLogo";
 import { useAuth } from "@/context/AuthContext";
 
-export default function Navbar() {
+export default function Navbar({
+  isMobileSidebarOpen = false,
+  mobileSidebarTriggerRef,
+  onOpenMobileSidebar,
+}) {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -121,7 +125,27 @@ export default function Navbar() {
             )
           )}
         </div>
+
+        <button
+          ref={mobileSidebarTriggerRef}
+          className="mobile-sidebar-trigger"
+          type="button"
+          aria-controls="favorite-navigation-drawer"
+          aria-expanded={isMobileSidebarOpen}
+          aria-label={isMobileSidebarOpen ? "Navigation menu open" : "Open navigation menu"}
+          onClick={onOpenMobileSidebar}
+        >
+          <span className="mobile-sidebar-trigger-icon"><MobileMenuIcon /></span>
+        </button>
       </div>
     </nav>
+  );
+}
+
+function MobileMenuIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
   );
 }

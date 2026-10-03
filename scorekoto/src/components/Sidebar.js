@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import Icon from "./Icon";
@@ -31,6 +31,7 @@ function SidebarImage({ src, label, type }) {
         <img
           src={src}
           alt=""
+          className={type === "player" ? undefined : "entity-logo"}
           loading="lazy"
           onError={(event) => {
             event.currentTarget.style.display = "none";
@@ -88,11 +89,48 @@ function SidebarLoading() {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  isMobileOpen = false,
+  mobileTriggerRef,
+  onMobileOpenChange,
+}) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarData, setSidebarData] = useState(emptySidebarData);
   const [isLoading, setIsLoading] = useState(true);
-  const { user, loading: authLoading } = useAuth();
+  const mobileCloseRef = useRef(null);
+  const { user, logout, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isMobileOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const focusFrame = window.requestAnimationFrame(() => mobileCloseRef.current?.focus());
+
+    function handleKeyDown(event) {
+      if (event.key !== "Escape") return;
+      onMobileOpenChange(false);
+      window.requestAnimationFrame(() => mobileTriggerRef.current?.focus());
+    }
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileOpen, mobileTriggerRef, onMobileOpenChange]);
+
+  useEffect(() => {
+    function handleViewportChange() {
+      if (window.innerWidth > 780) onMobileOpenChange(false);
+    }
+
+    handleViewportChange();
+    window.addEventListener("resize", handleViewportChange);
+    return () => window.removeEventListener("resize", handleViewportChange);
+  }, [onMobileOpenChange]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -196,12 +234,45 @@ export default function Sidebar() {
     </Link>
   );
 
+  function closeMobileSidebar({ restoreFocus = false } = {}) {
+    onMobileOpenChange(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => mobileTriggerRef.current?.focus());
+    }
+  }
+
   return (
-    <aside
-      className={`sidebar${isCollapsed ? " sidebar-collapsed" : ""}`}
-      aria-busy={isLoading}
-    >
+    <>
+      {isMobileOpen && (
+        <button
+          className="mobile-sidebar-backdrop"
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => closeMobileSidebar({ restoreFocus: true })}
+        />
+      )}
+
+      <aside
+        id="favorite-navigation-drawer"
+        className={`sidebar${isCollapsed ? " sidebar-collapsed" : ""}${isMobileOpen ? " sidebar-mobile-open" : ""}`}
+        aria-busy={isLoading}
+      >
       <div className="sidebar-inner">
+        <div className="mobile-sidebar-drawer-header">
+          <div>
+            <span>Navigation</span>
+            <strong>Favorites</strong>
+          </div>
+          <button
+            ref={mobileCloseRef}
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => closeMobileSidebar({ restoreFocus: true })}
+          >
+            <Icon name="close" />
+          </button>
+        </div>
+
         <div className="sidebar-controls">
           <span className="sidebar-controls-label">Favorites</span>
           <button
@@ -216,7 +287,13 @@ export default function Sidebar() {
           </button>
         </div>
 
-        <nav className="sidebar-navigation" aria-label="Football navigation">
+        <nav
+          className="sidebar-navigation"
+          aria-label="Favorite football navigation"
+          onClick={(event) => {
+            if (event.target.closest("a")) closeMobileSidebar();
+          }}
+        >
           {isLoading ? (
             <SidebarLoading />
           ) : (
@@ -236,7 +313,64 @@ export default function Sidebar() {
             </>
           )}
         </nav>
+
+        <section className="mobile-sidebar-account" aria-label="Account">
+          <h3>Account</h3>
+          {authLoading ? null : user ? (
+            <>
+              <Link
+                href="/profile"
+                className="mobile-sidebar-account-link"
+                onClick={() => closeMobileSidebar()}
+              >
+                <Icon name={user.role === "admin" ? "shield" : "user"} />
+                <span>
+                  <strong>Profile</strong>
+                  <small>{user.username}</small>
+                </span>
+              </Link>
+              {user.role === "admin" && (
+                <Link
+                  href="/admin"
+                  className="mobile-sidebar-account-link"
+                  onClick={() => closeMobileSidebar()}
+                >
+                  <Icon name="shield" />
+                  <span><strong>Admin</strong></span>
+                </Link>
+              )}
+              <button
+                className="mobile-sidebar-logout"
+                type="button"
+                onClick={() => {
+                  closeMobileSidebar();
+                  logout();
+                }}
+              >
+                Log out
+              </button>
+            </>
+          ) : (
+            <div className="mobile-sidebar-auth-actions">
+              <Link
+                href="/login"
+                className="mobile-sidebar-login"
+                onClick={() => closeMobileSidebar()}
+              >
+                Log in
+              </Link>
+              <Link
+                href="/register"
+                className="mobile-sidebar-signup"
+                onClick={() => closeMobileSidebar()}
+              >
+                Sign up
+              </Link>
+            </div>
+          )}
+        </section>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

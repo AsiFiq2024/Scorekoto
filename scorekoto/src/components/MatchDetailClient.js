@@ -184,7 +184,7 @@ export default function MatchDetailClient({ initialMatch, initialLineup }) {
               <img
                 src={homeLogo}
                 alt={`${match.homeTeam} logo`}
-                className="match-scoreboard-logo"
+                className="match-scoreboard-logo entity-logo"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
                   const fallback = e.currentTarget.parentElement?.querySelector(".match-scoreboard-placeholder");
@@ -210,7 +210,7 @@ export default function MatchDetailClient({ initialMatch, initialLineup }) {
               <img
                 src={awayLogo}
                 alt={`${match.awayTeam} logo`}
-                className="match-scoreboard-logo"
+                className="match-scoreboard-logo entity-logo"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
                   const fallback = e.currentTarget.parentElement?.querySelector(".match-scoreboard-placeholder");
