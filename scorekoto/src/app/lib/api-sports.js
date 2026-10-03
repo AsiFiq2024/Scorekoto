@@ -20,6 +20,9 @@ export function getPrimaryApiSportsKey() {
   return keys[0] || '';
 }
 
+// In-memory pointer to the currently healthy/active key to avoid wasteful retries
+let currentWorkingKeyIndex = 0;
+
 // Resilient API-Sports fetcher that rotates through all configured keys
 // when rate limits or daily quotas are reached on a key.
 export async function fetchFromApiSports(endpointOrUrl, options = {}) {
@@ -33,10 +36,12 @@ export async function fetchFromApiSports(endpointOrUrl, options = {}) {
     : `https://v3.football.api-sports.io/${endpointOrUrl.replace(/^\//, '')}`;
 
   let lastError = null;
-  let allQuotasExhausted = false;
+  const startingIndex = currentWorkingKeyIndex;
 
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
+  for (let attempt = 0; attempt < keys.length; attempt++) {
+    const keyIndex = (startingIndex + attempt) % keys.length;
+    const key = keys[keyIndex];
+
     try {
       const headers = {
         Accept: 'application/json',
@@ -51,6 +56,10 @@ export async function fetchFromApiSports(endpointOrUrl, options = {}) {
 
       if (!res.ok) {
         lastError = `HTTP ${res.status}`;
+        if (res.status === 429 || res.status === 403) {
+          console.warn(`API-Sports key [${key.slice(0, 8)}...] returned HTTP ${res.status}. Rotating to next key.`);
+          currentWorkingKeyIndex = (keyIndex + 1) % keys.length;
+        }
         continue;
       }
 
@@ -59,22 +68,31 @@ export async function fetchFromApiSports(endpointOrUrl, options = {}) {
       if (data.errors && Object.keys(data.errors).length > 0) {
         const errMsg = Object.values(data.errors).join(', ');
         lastError = errMsg;
-        // If quota or rate limit error, rotate to the next key
-        console.warn(`API-Sports quota notice with key [${key.slice(0, 8)}...]: ${errMsg}. Rotating to next key.`);
+        const errLower = errMsg.toLowerCase();
+        console.warn(`API-Sports notice with key [${key.slice(0, 8)}...]: ${errMsg}. Rotating to next key.`);
+        if (
+          errLower.includes('limit') ||
+          errLower.includes('quota') ||
+          errLower.includes('reach') ||
+          errLower.includes('suspended') ||
+          errLower.includes('token')
+        ) {
+          currentWorkingKeyIndex = (keyIndex + 1) % keys.length;
+        }
         continue;
       }
 
-      // Success with current key
-      return { data, error: null, quotaReached: false, usedKeyIndex: i };
+      // Success with current key - lock in this key as active
+      currentWorkingKeyIndex = keyIndex;
+      return { data, error: null, quotaReached: false, usedKeyIndex: keyIndex };
     } catch (err) {
       lastError = err.message;
     }
   }
 
-  allQuotasExhausted = true;
   return {
     data: null,
     error: lastError || 'All configured API keys exhausted or unavailable',
-    quotaReached: allQuotasExhausted,
+    quotaReached: true,
   };
 }

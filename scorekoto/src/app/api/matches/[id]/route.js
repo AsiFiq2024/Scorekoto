@@ -9,7 +9,6 @@ import {
   shouldRefreshMatchDetails,
 } from '@/app/lib/match-details';
 import { hasKnownKickoffTime } from '@/app/lib/kickoff-time';
-import { fetchFromApiSports } from '@/app/lib/api-sports';
 
 function isFinishedStatus(status) {
   if (!status) return false;
@@ -36,8 +35,7 @@ function calculateElapsedMinute(matchDate, status) {
   if (diffMinutes <= 45) return `${Math.max(1, diffMinutes)}'`;
   if (diffMinutes <= 60) return 'HT';
   if (diffMinutes <= 105) return `${diffMinutes - 15}'`;
-  if (diffMinutes < 120) return "90+'";
-  return 'FT'; // Auto-stop after 120 minutes (2 hours)
+  return "90+'";
 }
 
 export async function GET(request, { params }) {
@@ -95,21 +93,26 @@ export async function GET(request, { params }) {
     let providerMessage = null;
 
     // 2. Fetch fresh live data from API-Sports if live, forceRefresh requested, or match not in DB
-    if (shouldFetchApi) {
+    const apiKey = process.env.API_SPORTS_KEY;
+    if (shouldFetchApi && apiKey) {
       try {
-        const { data: liveData, error: apiError, quotaReached } = await fetchFromApiSports(`fixtures?id=${matchId}`, {
+        const liveRes = await fetch(`https://v3.football.api-sports.io/fixtures?id=${matchId}`, {
+          headers: { 'x-apisports-key': apiKey, Accept: 'application/json' },
           cache: forceRefresh ? 'no-store' : 'default',
           next: { revalidate: forceRefresh ? 0 : 20 },
         });
 
-        if (apiError || !liveData) {
-          providerMessage = quotaReached
-            ? 'Provider request limit reached; showing saved match data.'
-            : 'The live provider is temporarily unavailable; showing saved match data.';
-          if (dbRow) {
-            await recordMatchDetailAttempt(matchId, apiError || 'Provider unavailable');
+        if (liveRes.ok) {
+          const liveData = await liveRes.json();
+
+          if (liveData.errors && Object.keys(liveData.errors).length > 0) {
+            providerMessage = 'Provider request limit reached; showing saved match data.';
+            if (dbRow) {
+              await recordMatchDetailAttempt(matchId, Object.values(liveData.errors).join(', '));
+            }
           }
-        } else if (liveData.response && Array.isArray(liveData.response) && liveData.response.length > 0) {
+
+          if (liveData.response && Array.isArray(liveData.response) && liveData.response.length > 0) {
             const item = liveData.response[0];
             if (!item.fixture?.id || !item.fixture?.date || !item.teams?.home?.name || !item.teams?.away?.name) {
               throw new Error('Incomplete fixture payload from API-Sports');
@@ -277,7 +280,13 @@ export async function GET(request, { params }) {
               lineup: lineupData,
             });
           }
-        } catch (apiErr) {
+        } else {
+          providerMessage = `The live provider returned HTTP ${liveRes.status}; showing saved match data.`;
+          if (dbRow) {
+            await recordMatchDetailAttempt(matchId, `HTTP ${liveRes.status}`);
+          }
+        }
+      } catch (apiErr) {
         console.warn('API-Sports single fixture lookup error:', apiErr.message);
         providerMessage = 'The live provider is temporarily unavailable; showing saved match data.';
         if (dbRow) {
@@ -288,26 +297,7 @@ export async function GET(request, { params }) {
 
     // 3. Fallback: Return match from PostgreSQL database
     if (dbRow) {
-      let isLiveDb = isLiveStatus(dbRow.status);
-      let matchStatus = dbRow.status;
-      let matchMinute = '';
-
-      if (isLiveDb) {
-        const start = dbRow.matchDate ? new Date(dbRow.matchDate).getTime() : 0;
-        const diffMinutes = start ? Math.floor((Date.now() - start) / (60 * 1000)) : 0;
-        if (diffMinutes >= 120) {
-          isLiveDb = false;
-          matchStatus = 'FT';
-          matchMinute = 'FT';
-          pool.query(`UPDATE match SET status = 'FT' WHERE match_id = $1`, [dbRow.id]).catch(() => {});
-        } else {
-          matchMinute = calculateElapsedMinute(dbRow.matchDate, dbRow.status);
-        }
-      } else if (dbRow.status === 'HT') {
-        matchMinute = 'HT';
-      } else if (['NS', 'UPCOMING', 'TBD', 'TIMED', 'PST'].includes(String(dbRow.status).toUpperCase())) {
-        matchMinute = hasKnownKickoffTime(dbRow.matchDate, dbRow.status) ? null : 'TBD';
-      }
+      const isLiveDb = isLiveStatus(dbRow.status);
 
       const formattedMatch = {
         id: dbRow.id,
@@ -323,9 +313,15 @@ export async function GET(request, { params }) {
         awayPossession: dbRow.awayPossession === null ? null : Number(dbRow.awayPossession),
         homeRating: dbRow.homeRating === null ? null : Number(dbRow.homeRating),
         awayRating: dbRow.awayRating === null ? null : Number(dbRow.awayRating),
-        status: matchStatus,
-        providerStatus: matchStatus,
-        minute: matchMinute,
+        status: dbRow.status,
+        providerStatus: dbRow.status,
+        minute: isLiveDb
+          ? calculateElapsedMinute(dbRow.matchDate, dbRow.status)
+          : dbRow.status === 'HT'
+          ? 'HT'
+          : ['NS', 'UPCOMING', 'TBD', 'TIMED', 'PST'].includes(String(dbRow.status).toUpperCase())
+          ? hasKnownKickoffTime(dbRow.matchDate, dbRow.status) ? null : 'TBD'
+          : '',
         league: dbRow.league,
         venue: dbRow.venue || dbRow.stadium,
         matchDate: dbRow.matchDate,

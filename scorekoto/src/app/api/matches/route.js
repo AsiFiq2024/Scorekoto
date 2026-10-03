@@ -3,7 +3,6 @@ import pool from '../../lib/db';
 import { hasKnownKickoffTime } from '../../lib/kickoff-time';
 import { getLineupForMatch } from '../../lib/lineups';
 import { saveMatchDetails } from '../../lib/match-details';
-import { fetchFromApiSports } from '../../lib/api-sports';
 
 // In-memory cache for matches by date and live fixtures
 let liveCache = {
@@ -82,8 +81,7 @@ function calculateElapsedMinute(matchDate, status) {
   if (diffMinutes <= 45) return `${Math.max(1, diffMinutes)}'`;
   if (diffMinutes <= 60) return 'HT';
   if (diffMinutes <= 105) return `${diffMinutes - 15}'`;
-  if (diffMinutes < 120) return "90+'";
-  return 'FT'; // Auto-stop after 120 minutes (2 hours)
+  return "90+'";
 }
 
 function getDateString(offsetDays = 0) {
@@ -94,21 +92,6 @@ function getDateString(offsetDays = 0) {
   const month = String(bdNow.getMonth() + 1).padStart(2, '0');
   const day = String(bdNow.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-function isValidDateString(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split('-').map(Number);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  return parsed.getUTCFullYear() === year
-    && parsed.getUTCMonth() === month - 1
-    && parsed.getUTCDate() === day;
-}
-
-function getNextDateString(value) {
-  const [year, month, day] = value.split('-').map(Number);
-  const nextDate = new Date(Date.UTC(year, month - 1, day + 1));
-  return nextDate.toISOString().slice(0, 10);
 }
 
 function mapApiStatistics(item) {
@@ -153,16 +136,9 @@ function mapApiStatistics(item) {
 // Map API-Sports raw fixture to standard Scorekoto format
 function mapApiFixture(item, dateLabel = 'today') {
   const statusShort = item.fixture?.status?.short || '';
-  const isFinishedRaw = ['FT', 'AET', 'PEN'].includes(statusShort);
+  const isFinished = ['FT', 'AET', 'PEN'].includes(statusShort);
   const isUpcoming = ['NS', 'TBD', 'TIMED'].includes(statusShort);
-  const isLiveRaw = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(statusShort);
-
-  const start = item.fixture?.date ? new Date(item.fixture.date).getTime() : 0;
-  const diffMinutes = start ? Math.floor((Date.now() - start) / (60 * 1000)) : 0;
-  const isExpiredLive = isLiveRaw && diffMinutes >= 120;
-
-  const isFinished = isFinishedRaw || isExpiredLive;
-  const isLive = isLiveRaw && !isExpiredLive;
+  const isLive = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(statusShort);
 
   return {
     id: item.fixture.id,
@@ -175,12 +151,10 @@ function mapApiFixture(item, dateLabel = 'today') {
     awayLogo: item.teams?.away?.logo || null,
     homeScore: item.goals?.home ?? null,
     awayScore: item.goals?.away ?? null,
-    status: isFinished ? (isFinishedRaw ? statusShort : 'FT') : isUpcoming ? 'UPCOMING' : isLive ? 'LIVE' : statusShort,
-    providerStatus: isExpiredLive ? 'FT' : statusShort,
+    status: isFinished ? statusShort : isUpcoming ? 'UPCOMING' : isLive ? 'LIVE' : statusShort,
+    providerStatus: statusShort,
     minute:
-      isExpiredLive
-        ? 'FT'
-        : statusShort === 'HT'
+      statusShort === 'HT'
         ? 'HT'
         : item.fixture?.status?.elapsed
         ? `${item.fixture.status.elapsed}'`
@@ -242,20 +216,6 @@ function mapApiFixture(item, dateLabel = 'today') {
     stats: mapApiStatistics(item),
     rawLineups: item.lineups || null,
   };
-}
-
-// Auto-finalize in-play matches that have exceeded 2 hours (120 minutes) from kickoff
-async function autoFinalizeExpiredMatches() {
-  try {
-    await pool.query(`
-      UPDATE match
-      SET status = 'FT'
-      WHERE status IN ('LIVE', '1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT')
-        AND match_date <= (NOW() - INTERVAL '120 minutes')
-    `);
-  } catch (err) {
-    console.warn('Auto-finalize expired matches notice:', err.message);
-  }
 }
 
 // Background auto-save of matches to PostgreSQL
@@ -355,7 +315,7 @@ async function autoSaveFixturesToDb(fixtures) {
              season_id = EXCLUDED.season_id,
              home_team_id = EXCLUDED.home_team_id,
              away_team_id = EXCLUDED.away_team_id,
-             status = CASE WHEN match.status IN ('FT', 'AET', 'PEN') AND EXCLUDED.status NOT IN ('FT', 'AET', 'PEN') THEN match.status ELSE EXCLUDED.status END,
+             status = EXCLUDED.status,
              home_score = EXCLUDED.home_score,
              away_score = EXCLUDED.away_score,
              match_date = EXCLUDED.match_date,
@@ -402,20 +362,31 @@ async function fetchLiveMatchesFromApi(storedLeagues, forceRefresh = false) {
     };
   }
 
+  const apiKey = process.env.API_SPORTS_KEY;
+  if (!apiKey) {
+    return { matches: [], apiLimitHit: false, message: '' };
+  }
+
   try {
-    const { data, error, quotaReached } = await fetchFromApiSports('fixtures?live=all', {
+    const res = await fetch('https://v3.football.api-sports.io/fixtures?live=all', {
+      method: 'GET',
+      headers: { 'x-apisports-key': apiKey, Accept: 'application/json' },
       cache: forceRefresh ? 'no-store' : 'default',
       next: { revalidate: forceRefresh ? 0 : 25 },
     });
 
-    if (error || !data) {
+    const data = await res.json();
+
+    if (data.errors && Object.keys(data.errors).length > 0) {
+      const errMsg = Object.values(data.errors).join(', ');
+      console.warn('API-Sports notice:', errMsg);
       liveCache = {
         timestamp: now,
         data: [],
-        apiLimitHit: quotaReached,
-        message: quotaReached ? 'Live match API quota reached. Displaying fixtures from database.' : '',
+        apiLimitHit: true,
+        message: 'Live match API quota reached. Displaying fixtures from database.',
       };
-      return { matches: [], apiLimitHit: quotaReached, message: liveCache.message };
+      return { matches: [], apiLimitHit: true, message: liveCache.message };
     }
 
     if (data.response && Array.isArray(data.response) && data.response.length > 0) {
@@ -459,17 +430,28 @@ async function fetchFixturesByDate(dateStr, dateLabel, storedLeagues, forceRefre
     return cached;
   }
 
+  const apiKey = process.env.API_SPORTS_KEY;
+  if (!apiKey) {
+    return { matches: [], apiLimitHit: false, message: '' };
+  }
+
   try {
-    const { data, error, quotaReached } = await fetchFromApiSports(`fixtures?date=${dateStr}&timezone=Asia/Dhaka`, {
+    const res = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dateStr}&timezone=Asia/Dhaka`, {
+      method: 'GET',
+      headers: { 'x-apisports-key': apiKey, Accept: 'application/json' },
       cache: forceRefresh ? 'no-store' : 'default',
       next: { revalidate: forceRefresh ? 0 : 60 },
     });
 
-    if (error || !data) {
+    const data = await res.json();
+
+    if (data.errors && Object.keys(data.errors).length > 0) {
+      const errMsg = Object.values(data.errors).join(', ');
+      console.warn(`API-Sports notice for date ${dateStr}:`, errMsg);
       const result = {
         matches: [],
-        apiLimitHit: quotaReached,
-        message: quotaReached ? 'API quota reached. Showing database records.' : '',
+        apiLimitHit: true,
+        message: 'API quota reached. Showing database records.',
       };
       dateCache.set(cacheKey, { timestamp: now, ...result });
       return result;
@@ -512,9 +494,6 @@ export async function GET(request) {
     const tomorrowDate = getDateString(1);
     const dayAfterTomorrowDate = getDateString(2);
 
-    // Auto-finalize in-play matches that have exceeded 2 hours from kickoff
-    await autoFinalizeExpiredMatches();
-
     // 1. Get stored leagues from DB
     const storedLeagues = await getStoredLeagues();
     const leagueIdsArray = Array.from(storedLeagues.ids);
@@ -542,87 +521,7 @@ export async function GET(request) {
     `;
 
     // ==========================================
-    // CASE A: AN EXACT CALENDAR DATE
-    // ==========================================
-    if (isValidDateString(dateParam)) {
-      const nextDate = getNextDateString(dateParam);
-      const apiResult = await fetchFixturesByDate(dateParam, dateParam, storedLeagues, forceRefresh);
-      const liveMatches = apiResult.matches.filter((match) => match.status === 'LIVE');
-      const finishedMatches = apiResult.matches.filter((match) => match.status === 'FT');
-      const upcomingMatches = apiResult.matches.filter((match) => match.status === 'UPCOMING');
-
-      try {
-        const dbRes = await pool.query(
-          `${baseSelect}
-           WHERE (l.league_id = ANY($1::int[]) OR l.league_id IS NULL)
-             AND m.match_date >= ($2 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
-             AND m.match_date < ($3 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
-           ORDER BY m.match_date ASC
-           LIMIT 100`,
-          [leagueIdsArray, dateParam, nextDate]
-        );
-
-        const finishedStatuses = new Set(['FT', 'AET', 'PEN']);
-        const liveStatuses = new Set(['LIVE', '1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT']);
-        const upcomingStatuses = new Set(['NS', 'UPCOMING', 'TBD', 'TIMED']);
-
-        for (const row of dbRes.rows) {
-          const rawStatus = String(row.status || '').toUpperCase();
-          const bucket = finishedStatuses.has(rawStatus)
-            ? finishedMatches
-            : liveStatuses.has(rawStatus)
-              ? liveMatches
-              : upcomingStatuses.has(rawStatus)
-                ? upcomingMatches
-                : null;
-
-          if (!bucket || bucket.some((match) => String(match.id) === String(row.id))) continue;
-
-          const normalizedStatus = bucket === finishedMatches
-            ? 'FT'
-            : bucket === liveMatches
-              ? 'LIVE'
-              : 'UPCOMING';
-
-          bucket.push({
-            id: row.id,
-            date: dateParam,
-            homeTeam: row.homeTeam,
-            awayTeam: row.awayTeam,
-            homeLogo: row.homeLogo,
-            awayLogo: row.awayLogo,
-            homeScore: normalizedStatus === 'UPCOMING' ? null : row.homeScore ?? 0,
-            awayScore: normalizedStatus === 'UPCOMING' ? null : row.awayScore ?? 0,
-            status: normalizedStatus,
-            providerStatus: rawStatus,
-            minute: normalizedStatus === 'LIVE'
-              ? calculateElapsedMinute(row.matchDate, rawStatus)
-              : normalizedStatus === 'FT'
-                ? 'FT'
-                : hasKnownKickoffTime(row.matchDate, rawStatus) ? null : 'TBD',
-            matchDate: row.matchDate,
-            league: getCompetitionName(row.leagueId, row.league),
-            events: [],
-            stats: null,
-          });
-        }
-      } catch (dbErr) {
-        console.warn(`DB matches query error for ${dateParam}:`, dbErr.message);
-      }
-
-      return NextResponse.json({
-        success: true,
-        date: dateParam,
-        liveMatches,
-        finishedMatches,
-        upcomingMatches,
-        apiLimitHit: apiResult.apiLimitHit,
-        apiMessage: apiResult.message,
-      });
-    }
-
-    // ==========================================
-    // CASE B: YESTERDAY'S MATCHES
+    // CASE A: YESTERDAY'S MATCHES
     // ==========================================
     if (dateParam === 'yesterday') {
       const apiResult = await fetchFixturesByDate(yesterdayDate, 'yesterday', storedLeagues, forceRefresh);
@@ -680,7 +579,7 @@ export async function GET(request) {
     }
 
     // ==========================================
-    // CASE C: TOMORROW'S MATCHES
+    // CASE B: TOMORROW'S MATCHES
     // ==========================================
     if (dateParam === 'tomorrow') {
       const apiResult = await fetchFixturesByDate(tomorrowDate, 'tomorrow', storedLeagues, forceRefresh);
@@ -738,7 +637,7 @@ export async function GET(request) {
     }
 
     // ==========================================
-    // CASE D: TODAY'S MATCHES (DEFAULT)
+    // CASE C: TODAY'S MATCHES (DEFAULT)
     // ==========================================
     const liveResult = await fetchLiveMatchesFromApi(storedLeagues, forceRefresh);
     const todayApiResult = await fetchFixturesByDate(todayDate, 'today', storedLeagues, forceRefresh);
@@ -785,48 +684,21 @@ export async function GET(request) {
          LIMIT 20`,
         [todayDate, tomorrowDate]
       );
-      const now = Date.now();
-      dbLiveMatches = [];
-      for (const row of liveDbRes.rows) {
-        const start = row.matchDate ? new Date(row.matchDate).getTime() : 0;
-        const diffMinutes = start ? Math.floor((now - start) / (60 * 1000)) : 0;
-
-        if (diffMinutes >= 120) {
-          if (!dbFinishedMatches.some((m) => m.id === row.id)) {
-            dbFinishedMatches.push({
-              id: row.id,
-              date: 'today',
-              homeTeam: row.homeTeam,
-              awayTeam: row.awayTeam,
-              homeLogo: row.homeLogo,
-              awayLogo: row.awayLogo,
-              homeScore: row.homeScore ?? 0,
-              awayScore: row.awayScore ?? 0,
-              status: 'FT',
-              minute: 'FT',
-              league: getCompetitionName(row.leagueId, row.league),
-              events: [],
-              stats: null,
-            });
-          }
-        } else {
-          dbLiveMatches.push({
-            id: row.id,
-            date: 'today',
-            homeTeam: row.homeTeam,
-            awayTeam: row.awayTeam,
-            homeLogo: row.homeLogo,
-            awayLogo: row.awayLogo,
-            homeScore: row.homeScore ?? 0,
-            awayScore: row.awayScore ?? 0,
-            status: 'LIVE',
-            minute: calculateElapsedMinute(row.matchDate, row.status),
-            league: getCompetitionName(row.leagueId, row.league),
-            events: [],
-            stats: null,
-          });
-        }
-      }
+      dbLiveMatches = liveDbRes.rows.map((row) => ({
+        id: row.id,
+        date: 'today',
+        homeTeam: row.homeTeam,
+        awayTeam: row.awayTeam,
+        homeLogo: row.homeLogo,
+        awayLogo: row.awayLogo,
+        homeScore: row.homeScore ?? 0,
+        awayScore: row.awayScore ?? 0,
+        status: 'LIVE',
+        minute: calculateElapsedMinute(row.matchDate, row.status),
+        league: getCompetitionName(row.leagueId, row.league),
+        events: [],
+        stats: null,
+      }));
 
       // 3. Upcoming Matches in PostgreSQL
       const upcomingRes = await pool.query(
@@ -867,28 +739,11 @@ export async function GET(request) {
     dbFinishedMatches = apiTodayFinished.length > 0 ? apiTodayFinished : dbFinishedMatches;
     dbUpcomingMatches = apiTodayUpcoming.length > 0 ? apiTodayUpcoming : dbUpcomingMatches;
 
-    // Merge live matches and strictly filter out any matches exceeding 2 hours
-    const rawCombinedLive = apiTodayLive.length > 0 ? [...apiTodayLive] : [...dbLiveMatches];
+    // Merge live matches
+    const combinedLiveMatches = apiTodayLive.length > 0 ? [...apiTodayLive] : [...dbLiveMatches];
     for (const apiMatch of liveResult.matches) {
-      if (!rawCombinedLive.some((m) => m.id === apiMatch.id)) {
-        rawCombinedLive.push(apiMatch);
-      }
-    }
-
-    const combinedLiveMatches = [];
-    for (const m of rawCombinedLive) {
-      const start = m.matchDate ? new Date(m.matchDate).getTime() : 0;
-      const diffMinutes = start ? Math.floor((Date.now() - start) / (60 * 1000)) : 0;
-      if (diffMinutes >= 120) {
-        if (!dbFinishedMatches.some((f) => f.id === m.id)) {
-          dbFinishedMatches.unshift({
-            ...m,
-            status: 'FT',
-            minute: 'FT',
-          });
-        }
-      } else {
-        combinedLiveMatches.push(m);
+      if (!combinedLiveMatches.some((m) => m.id === apiMatch.id)) {
+        combinedLiveMatches.push(apiMatch);
       }
     }
 
