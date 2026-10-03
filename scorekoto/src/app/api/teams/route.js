@@ -6,7 +6,10 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
-    const limit = parseInt(searchParams.get('limit') || '500', 10);
+    const requestedLimit = Number.parseInt(searchParams.get('limit') || '1000', 10);
+    const limit = Number.isInteger(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 1000)
+      : 1000;
 
     let query = `
       SELECT 

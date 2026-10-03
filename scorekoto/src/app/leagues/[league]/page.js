@@ -48,7 +48,7 @@ async function getLeagueDataFromDb(leagueParam, selectedSeasonYear = null) {
       (season) => season.standings_count > 0 || season.scorers_count > 0 || season.match_count > 0
     );
 
-    // 2. Determine target season (prefer latest season that actually has standings or matches)
+    // 2. Determine target season from the latest season with any real data.
     let targetSeason = null;
     if (selectedSeasonYear) {
       targetSeason = allSeasonsRes.rows.find(
@@ -56,10 +56,7 @@ async function getLeagueDataFromDb(leagueParam, selectedSeasonYear = null) {
       );
     }
     if (!targetSeason) {
-      targetSeason = availableSeasons.find((s) => s.standings_count > 0) ||
-                     availableSeasons.find((s) => s.match_count > 0) ||
-                     availableSeasons[0] ||
-                     allSeasonsRes.rows[0];
+      targetSeason = availableSeasons[0] || allSeasonsRes.rows[0];
     }
 
     const targetSeasonId = targetSeason?.season_id;
@@ -144,7 +141,7 @@ async function getLeagueDataFromDb(leagueParam, selectedSeasonYear = null) {
        JOIN league l ON s.league_id = l.league_id
        WHERE l.league_id = $1
          AND ($2::int IS NULL OR m.season_id = $2)
-       ORDER BY m.match_date DESC`,
+       ORDER BY m.match_date DESC NULLS LAST`,
       [league.id, targetSeasonId || null]
     );
     const leagueMatches = matchRes.rows;

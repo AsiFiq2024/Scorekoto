@@ -147,7 +147,7 @@ try {
       SELECT
         COUNT(*) FILTER (WHERE match_date IS NULL)::int AS missing_date,
         COUNT(*) FILTER (WHERE NULLIF(BTRIM(status), '') IS NULL)::int AS missing_status,
-        COUNT(*) FILTER (WHERE status NOT IN ('TBD', 'NS', '1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE', 'FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD', 'AWD', 'WO'))::int AS unknown_status,
+        COUNT(*) FILTER (WHERE status NOT IN ('UPCOMING', 'TBD', 'NS', '1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE', 'FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD', 'AWD', 'WO'))::int AS unknown_status,
         COUNT(*) FILTER (WHERE status IN ('FT', 'AET', 'PEN') AND (home_score IS NULL OR away_score IS NULL))::int AS completed_missing_score,
         COUNT(*) FILTER (WHERE status IN ('TBD', 'NS', 'PST') AND (home_score IS NOT NULL OR away_score IS NOT NULL))::int AS scheduled_with_score,
         COUNT(*) FILTER (WHERE home_score < 0 OR away_score < 0)::int AS negative_score,

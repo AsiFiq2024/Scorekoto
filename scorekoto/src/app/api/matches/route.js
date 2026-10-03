@@ -95,6 +95,21 @@ function getDateString(offsetDays = 0) {
   return `${year}-${month}-${day}`;
 }
 
+function isValidDateString(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
+}
+
+function getNextDateString(value) {
+  const [year, month, day] = value.split('-').map(Number);
+  const nextDate = new Date(Date.UTC(year, month - 1, day + 1));
+  return nextDate.toISOString().slice(0, 10);
+}
+
 function mapApiStatistics(item) {
   if (!Array.isArray(item.statistics) || item.statistics.length < 2) return null;
   const home = item.statistics.find(
@@ -548,7 +563,87 @@ export async function GET(request) {
     `;
 
     // ==========================================
-    // CASE A: YESTERDAY'S MATCHES
+    // CASE A: AN EXACT CALENDAR DATE
+    // ==========================================
+    if (isValidDateString(dateParam)) {
+      const nextDate = getNextDateString(dateParam);
+      const apiResult = await fetchFixturesByDate(dateParam, dateParam, storedLeagues, forceRefresh);
+      const liveMatches = apiResult.matches.filter((match) => match.status === 'LIVE');
+      const finishedMatches = apiResult.matches.filter((match) => match.status === 'FT');
+      const upcomingMatches = apiResult.matches.filter((match) => match.status === 'UPCOMING');
+
+      try {
+        const dbRes = await pool.query(
+          `${baseSelect}
+           WHERE (l.league_id = ANY($1::int[]) OR l.league_id IS NULL)
+             AND m.match_date >= ($2 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
+             AND m.match_date < ($3 || ' 00:00:00+06')::timestamptz AT TIME ZONE 'UTC'
+           ORDER BY m.match_date ASC
+           LIMIT 100`,
+          [leagueIdsArray, dateParam, nextDate]
+        );
+
+        const finishedStatuses = new Set(['FT', 'AET', 'PEN']);
+        const liveStatuses = new Set(['LIVE', '1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT']);
+        const upcomingStatuses = new Set(['NS', 'UPCOMING', 'TBD', 'TIMED']);
+
+        for (const row of dbRes.rows) {
+          const rawStatus = String(row.status || '').toUpperCase();
+          const bucket = finishedStatuses.has(rawStatus)
+            ? finishedMatches
+            : liveStatuses.has(rawStatus)
+              ? liveMatches
+              : upcomingStatuses.has(rawStatus)
+                ? upcomingMatches
+                : null;
+
+          if (!bucket || bucket.some((match) => String(match.id) === String(row.id))) continue;
+
+          const normalizedStatus = bucket === finishedMatches
+            ? 'FT'
+            : bucket === liveMatches
+              ? 'LIVE'
+              : 'UPCOMING';
+
+          bucket.push({
+            id: row.id,
+            date: dateParam,
+            homeTeam: row.homeTeam,
+            awayTeam: row.awayTeam,
+            homeLogo: row.homeLogo,
+            awayLogo: row.awayLogo,
+            homeScore: normalizedStatus === 'UPCOMING' ? null : row.homeScore ?? 0,
+            awayScore: normalizedStatus === 'UPCOMING' ? null : row.awayScore ?? 0,
+            status: normalizedStatus,
+            providerStatus: rawStatus,
+            minute: normalizedStatus === 'LIVE'
+              ? calculateElapsedMinute(row.matchDate, rawStatus)
+              : normalizedStatus === 'FT'
+                ? 'FT'
+                : hasKnownKickoffTime(row.matchDate, rawStatus) ? null : 'TBD',
+            matchDate: row.matchDate,
+            league: getCompetitionName(row.leagueId, row.league),
+            events: [],
+            stats: null,
+          });
+        }
+      } catch (dbErr) {
+        console.warn(`DB matches query error for ${dateParam}:`, dbErr.message);
+      }
+
+      return NextResponse.json({
+        success: true,
+        date: dateParam,
+        liveMatches,
+        finishedMatches,
+        upcomingMatches,
+        apiLimitHit: apiResult.apiLimitHit,
+        apiMessage: apiResult.message,
+      });
+    }
+
+    // ==========================================
+    // CASE B: YESTERDAY'S MATCHES
     // ==========================================
     if (dateParam === 'yesterday') {
       const apiResult = await fetchFixturesByDate(yesterdayDate, 'yesterday', storedLeagues, forceRefresh);
@@ -606,7 +701,7 @@ export async function GET(request) {
     }
 
     // ==========================================
-    // CASE B: TOMORROW'S MATCHES
+    // CASE C: TOMORROW'S MATCHES
     // ==========================================
     if (dateParam === 'tomorrow') {
       const apiResult = await fetchFixturesByDate(tomorrowDate, 'tomorrow', storedLeagues, forceRefresh);
@@ -664,7 +759,7 @@ export async function GET(request) {
     }
 
     // ==========================================
-    // CASE C: TODAY'S MATCHES (DEFAULT)
+    // CASE D: TODAY'S MATCHES (DEFAULT)
     // ==========================================
     const liveResult = await fetchLiveMatchesFromApi(storedLeagues, forceRefresh);
     const todayApiResult = await fetchFixturesByDate(todayDate, 'today', storedLeagues, forceRefresh);

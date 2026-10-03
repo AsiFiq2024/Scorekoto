@@ -214,13 +214,15 @@ export default function MatchTabs({
 function MatchEvent({ event, match }) {
   const isHomeTeam =
     event.team === match.homeTeam;
+  const eventSide = !event.team
+    ? "neutral-event"
+    : isHomeTeam
+      ? "home-event"
+      : "away-event";
 
   return (
     <div
-      className={`timeline-event ${isHomeTeam
-        ? "home-event"
-        : "away-event"
-        }`}
+      className={`timeline-event ${eventSide} event-type-${event.type || "unknown"}`}
     >
       <span className="event-minute">
         {event.minute}
@@ -236,7 +238,7 @@ function MatchEvent({ event, match }) {
         </strong>
 
         {event.team && (
-          <span>
+          <span className="event-team">
             {event.team}
           </span>
         )}
@@ -705,24 +707,47 @@ function PlayerRating({ rating, compact = false }) {
 function PlayerMatchBadges({ indicators }) {
   if (indicators.length === 0) return null;
 
+  const indicatorGroups = Array.from(
+    indicators.reduce((groups, indicator) => {
+      const groupKey = ["goal", "penalty-goal"].includes(indicator.type)
+        ? "goal"
+        : indicator.type;
+      const group = groups.get(groupKey) || [];
+      group.push(indicator);
+      groups.set(groupKey, group);
+      return groups;
+    }, new Map())
+  );
+
   return (
     <span className="player-event-badges">
-      {indicators.map((indicator, index) => (
+      {indicatorGroups.map(([groupKey, group]) => (
         <span
-          className={`player-event-badge player-event-badge-${indicator.type}`}
-          key={`${indicator.type}-${indicator.minute}-${index}`}
-          title={`${indicator.label}${indicator.minute ? ` at ${indicator.minute}` : ""}`}
-          aria-label={`${indicator.label}${indicator.minute ? ` at ${indicator.minute}` : ""}`}
+          className="player-event-badge-stack"
+          key={groupKey}
+          role="img"
+          aria-label={group
+            .map((indicator) => `${indicator.label}${indicator.minute ? ` at ${indicator.minute}` : ""}`)
+            .join(", ")}
         >
-          {indicator.type === "goal" && <Icon name="football" />}
-          {indicator.type === "penalty-goal" && <Icon name="target" />}
-          {indicator.type === "missed-penalty" && <Icon name="target" />}
-          {indicator.type === "assist" && <Icon name="assist" />}
-          {indicator.type === "own-goal" && <Icon name="football" />}
-          {indicator.type === "yellow-card" && <Icon name="yellowCard" />}
-          {indicator.type === "red-card" && <Icon name="redCard" />}
-          {indicator.type === "sub-in" && <Icon name="arrowUp" />}
-          {indicator.type === "sub-out" && <Icon name="arrowDown" />}
+          {group.map((indicator, index) => (
+            <span
+              className={`player-event-badge player-event-badge-${indicator.type}`}
+              key={`${indicator.type}-${indicator.minute}-${index}`}
+              title={`${indicator.label}${indicator.minute ? ` at ${indicator.minute}` : ""}`}
+              aria-hidden="true"
+            >
+              {indicator.type === "goal" && <Icon name="football" />}
+              {indicator.type === "penalty-goal" && <Icon name="target" />}
+              {indicator.type === "missed-penalty" && <Icon name="targetMissed" />}
+              {indicator.type === "assist" && <Icon name="assist" />}
+              {indicator.type === "own-goal" && <Icon name="ownGoal" />}
+              {indicator.type === "yellow-card" && <Icon name="yellowCard" />}
+              {indicator.type === "red-card" && <Icon name="redCard" />}
+              {indicator.type === "sub-in" && <Icon name="subIn" />}
+              {indicator.type === "sub-out" && <Icon name="subOut" />}
+            </span>
+          ))}
         </span>
       ))}
     </span>
@@ -828,16 +853,37 @@ function HeadToHead({ matches, currentMatch }) {
       </div>
 
       <div className="h2h-list">
-        {matches.map((item) => (
-          <Link href={`/matches/${item.id}`} className="h2h-row" key={item.id}>
-            <div>
-              <small>{new Date(item.matchDate).toLocaleDateString("en-US", { timeZone: "Asia/Dhaka", year: "numeric", month: "short", day: "numeric" })} · {item.league}</small>
-              <span>{item.homeTeam}</span>
-            </div>
-            <strong>{item.homeScore} - {item.awayScore}</strong>
-            <span>{item.awayTeam}</span>
-          </Link>
-        ))}
+        {matches.map((item) => {
+          const homeWon = Number(item.homeScore) > Number(item.awayScore);
+          const awayWon = Number(item.awayScore) > Number(item.homeScore);
+
+          return (
+            <Link href={`/matches/${item.id}`} className="h2h-row" key={item.id}>
+              <div className="h2h-meta">
+                <time dateTime={item.matchDate}>
+                  {new Date(item.matchDate).toLocaleDateString("en-US", { timeZone: "Asia/Dhaka", year: "numeric", month: "short", day: "numeric" })}
+                </time>
+                <span className="h2h-league">{item.league}</span>
+              </div>
+              <div className="h2h-result">
+                <span className={`h2h-team${homeWon ? " h2h-team-winner" : ""}`}>
+                  {item.homeTeam}
+                </span>
+                <strong className="h2h-score">
+                  <span>{item.homeScore}</span>
+                  <i aria-hidden="true">-</i>
+                  <span>{item.awayScore}</span>
+                </strong>
+                <span className={`h2h-team h2h-team-away${awayWon ? " h2h-team-winner" : ""}`}>
+                  {item.awayTeam}
+                </span>
+              </div>
+              <span className="h2h-arrow" aria-hidden="true">
+                <Icon name="chevronRight" />
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

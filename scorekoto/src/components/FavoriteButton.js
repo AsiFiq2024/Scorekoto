@@ -6,6 +6,7 @@ import Icon from "./Icon";
 export default function FavoriteButton({
     type,
     id,
+    label,
 }) {
     const {
         isFavorite,
@@ -18,6 +19,7 @@ export default function FavoriteButton({
             <button
                 className="favorite-button"
                 disabled
+                aria-label={label ? `Loading favorite status for ${label}` : "Loading favorite status"}
             >
                 <Icon name="star" />
             </button>
@@ -39,8 +41,8 @@ export default function FavoriteButton({
             }
             aria-label={
                 active
-                    ? "Remove from favorites"
-                    : "Add to favorites"
+                    ? `Remove${label ? ` ${label}` : ""} from favorites`
+                    : `Add${label ? ` ${label}` : ""} to favorites`
             }
         >
             <Icon name="star" filled={active} />

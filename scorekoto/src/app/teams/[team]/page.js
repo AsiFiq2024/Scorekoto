@@ -4,6 +4,7 @@ import FavoriteButton from "@/components/FavoriteButton";
 import { TeamCompareButton } from "@/components/TeamCompareModal";
 import { getTeamManagerName } from "@/app/lib/team-manager";
 import { getTeamSquad } from "@/app/lib/team-squad";
+import { getTeamPrimaryCompetition } from "@/app/lib/team-competition";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 
@@ -39,22 +40,8 @@ async function getTeamDataFromDb(teamParam) {
     const teamId = teamRow.team_id;
     const managerNamePromise = getTeamManagerName(teamId, teamRow.manager_name);
 
-    // 2. Query League / Country info
-    const leagueQuery = `
-      SELECT l.name as league_name, l.country
-      FROM match m
-      JOIN season s ON m.season_id = s.season_id
-      JOIN league l ON s.league_id = l.league_id
-      WHERE m.home_team_id = $1 OR m.away_team_id = $1
-      GROUP BY l.league_id, l.name, l.country
-      ORDER BY
-        CASE WHEN LOWER(COALESCE(l.country, 'world')) = 'world' THEN 1 ELSE 0 END,
-        MAX(m.match_date) DESC,
-        COUNT(*) DESC
-      LIMIT 1;
-    `;
-    const leagueRes = await pool.query(leagueQuery, [teamId]);
-    const leagueInfo = leagueRes.rows[0] || {};
+    // 2. Resolve the primary domestic competition from valid dated evidence.
+    const leagueInfoPromise = getTeamPrimaryCompetition(teamId);
 
     // 3. Query the verified current-squad snapshot. Player.team_id cannot
     // represent both club and national-team membership accurately.
@@ -79,7 +66,7 @@ async function getTeamDataFromDb(teamParam) {
       JOIN season s ON m.season_id = s.season_id
       JOIN league l ON s.league_id = l.league_id
       WHERE m.home_team_id = $1 OR m.away_team_id = $1
-      ORDER BY m.match_date DESC;
+      ORDER BY m.match_date DESC NULLS LAST;
     `;
     const matchesRes = await pool.query(matchesQuery, [teamId]);
     const matches = matchesRes.rows;
@@ -92,7 +79,11 @@ async function getTeamDataFromDb(teamParam) {
        ORDER BY tt.season_won DESC, tr.name ASC`,
       [teamId]
     );
-    const [managerName, squad] = await Promise.all([managerNamePromise, squadPromise]);
+    const [managerName, squad, leagueInfo] = await Promise.all([
+      managerNamePromise,
+      squadPromise,
+      leagueInfoPromise,
+    ]);
 
     // Query PL/pgSQL database functions
     const sqlFunctionsRes = await pool.query(
@@ -135,10 +126,10 @@ async function getTeamDataFromDb(teamParam) {
       name: teamRow.name,
       slug: teamRow.name.toLowerCase().replaceAll(" ", "-"),
       shortName: teamRow.short_name || teamRow.name.substring(0, 3).toUpperCase(),
-      stadium: teamRow.stadium_name || "Venue unavailable",
-      country: leagueInfo.country || "Country unavailable",
-      league: leagueInfo.league_name || "Competition unavailable",
-      manager: managerName || "Manager unavailable",
+      stadium: teamRow.stadium_name || null,
+      country: leagueInfo?.country || null,
+      league: leagueInfo?.name || null,
+      manager: managerName || null,
       history: teamRow.history || null,
       logo: teamRow.logo_url,
       winRate: sqlFunctions.win_rate,
@@ -198,6 +189,7 @@ export default async function TeamPage({ params }) {
   const squadMeta = dbData.squadMeta || { status: "not_synced", playerCount: 0 };
   const teamStats = dbData.stats || { played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
   const teamTrophies = dbData.trophies || [];
+  const headerDetails = [teamData.country, teamData.stadium].filter(Boolean);
 
   return (
     <main className="team-page">
@@ -216,7 +208,7 @@ export default async function TeamPage({ params }) {
         <div>
           <h1>{teamData.name}</h1>
           <p>
-            {teamData.country} · {teamData.stadium}
+            {headerDetails.join(" · ")}
             {teamData.winRate !== undefined && Number(teamData.winRate) > 0 && (
               <span> · Win Rate: <strong>{teamData.winRate}%</strong></span>
             )}

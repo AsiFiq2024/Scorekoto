@@ -43,12 +43,12 @@ export default function TeamTabs({
   ];
 
   const teamInfoItems = [
-    { label: "Short Name", value: team.shortName || team.short_name || "Not recorded", icon: "info" },
-    { label: "Stadium", value: team.stadium || team.stadium_name || "Venue unavailable", icon: "mapPin" },
-    { label: "Country", value: team.country || "Country unavailable", icon: "globe" },
-    { label: "Manager", value: team.manager_name || team.manager || "Manager unavailable", icon: "user" },
-    { label: "League", value: team.league || "Competition unavailable", icon: "trophy" },
-  ];
+    { label: "Short Name", value: team.shortName || team.short_name, icon: "info" },
+    { label: "Stadium", value: team.stadium || team.stadium_name, icon: "mapPin" },
+    { label: "Country", value: team.country, icon: "globe" },
+    { label: "Manager", value: team.manager_name || team.manager, icon: "user" },
+    { label: "League", value: team.league, icon: "trophy" },
+  ].filter((item) => item.value !== null && item.value !== undefined && String(item.value).trim());
 
   const completedStatuses = new Set(["FT", "AET", "PEN"]);
   const scheduledStatuses = new Set(["UPCOMING", "NS", "TBD", "TIMED", "PST"]);
@@ -467,7 +467,7 @@ function SquadSection({ title, players }) {
               <strong>{player.name}</strong>
               <span>
                 {player.nationality ? `${player.nationality} · ` : ""}
-                {player.position || "Position unavailable"}
+                {player.position}
                 {player.number != null ? ` · #${player.number}` : ""}
               </span>
             </div>

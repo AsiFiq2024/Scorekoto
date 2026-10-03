@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '../../../lib/db';
 import { getTeamManagerName } from '../../../lib/team-manager';
 import { getTeamSquad } from '../../../lib/team-squad';
+import { getTeamPrimaryCompetition } from '../../../lib/team-competition';
 
 export async function GET(request, { params }) {
   try {
@@ -40,22 +41,8 @@ export async function GET(request, { params }) {
     const teamId = teamData.team_id;
     const managerNamePromise = getTeamManagerName(teamId, teamData.manager_name);
 
-    // Determine league and country from recent match / season if available
-    const leagueQuery = `
-      SELECT l.name as league_name, l.country
-      FROM match m
-      JOIN season s ON m.season_id = s.season_id
-      JOIN league l ON s.league_id = l.league_id
-      WHERE m.home_team_id = $1 OR m.away_team_id = $1
-      GROUP BY l.league_id, l.name, l.country
-      ORDER BY
-        CASE WHEN LOWER(COALESCE(l.country, 'world')) = 'world' THEN 1 ELSE 0 END,
-        MAX(m.match_date) DESC,
-        COUNT(*) DESC
-      LIMIT 1;
-    `;
-    const leagueRes = await pool.query(leagueQuery, [teamId]);
-    const leagueInfo = leagueRes.rows[0] || {};
+    // Determine the primary domestic competition from valid dated evidence.
+    const leagueInfoPromise = getTeamPrimaryCompetition(teamId);
 
     // 2. Fetch the authoritative current-squad snapshot. A player's primary
     // team field is not a membership table and cannot model national squads.
@@ -80,7 +67,7 @@ export async function GET(request, { params }) {
       JOIN season s ON m.season_id = s.season_id
       JOIN league l ON s.league_id = l.league_id
       WHERE m.home_team_id = $1 OR m.away_team_id = $1
-      ORDER BY m.match_date DESC;
+      ORDER BY m.match_date DESC NULLS LAST;
     `;
     const matchesRes = await pool.query(matchesQuery, [teamId]);
     const matches = matchesRes.rows;
@@ -119,7 +106,11 @@ export async function GET(request, { params }) {
       ORDER BY tt.season_won DESC;
     `;
     const trophiesRes = await pool.query(trophiesQuery, [teamId]);
-    const [managerName, squad] = await Promise.all([managerNamePromise, squadPromise]);
+    const [managerName, squad, leagueInfo] = await Promise.all([
+      managerNamePromise,
+      squadPromise,
+      leagueInfoPromise,
+    ]);
 
     const formattedTeam = {
       id: teamData.team_id,
@@ -130,8 +121,8 @@ export async function GET(request, { params }) {
       logo: teamData.logo_url,
       history: teamData.history,
       manager: managerName,
-      country: leagueInfo.country || 'Country unavailable',
-      league: leagueInfo.league_name || 'Competition unavailable',
+      country: leagueInfo?.country || null,
+      league: leagueInfo?.name || null,
     };
 
     return NextResponse.json({

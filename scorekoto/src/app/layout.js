@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Hind_Siliguri, Manrope } from "next/font/google";
 import AppLayout from "@/components/AppLayout";
+import PageLoadingScreen from "@/components/PageLoadingScreen";
 import { AuthProvider } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 
@@ -29,6 +30,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${manrope.variable} ${hindSiliguri.variable}`}>
       <body>
+        <PageLoadingScreen />
         <AuthProvider>
           <FavoritesProvider>
             <AppLayout>

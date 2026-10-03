@@ -1,4 +1,5 @@
 import pool from "@/app/lib/db";
+import { getTeamCompetitions } from "@/app/lib/team-competition";
 import FavoriteButton from "@/components/FavoriteButton";
 import PlayerTabs from "@/components/PlayerTabs";
 import Link from "next/link";
@@ -226,25 +227,7 @@ async function getPlayerDataFromDb(playerSlugOrId) {
 
     let teamCompetitions = [];
     if (row.team_id) {
-      const teamLeagueRes = await pool.query(
-        `SELECT
-           l.league_id AS id,
-           l.name,
-           l.country,
-           MAX(m.match_date) AS latest_match,
-           COUNT(*)::int AS match_count
-         FROM match m
-         JOIN season s ON s.season_id = m.season_id
-         JOIN league l ON l.league_id = s.league_id
-         WHERE m.home_team_id = $1 OR m.away_team_id = $1
-         GROUP BY l.league_id, l.name, l.country
-         ORDER BY
-           CASE WHEN LOWER(COALESCE(l.country, 'world')) = 'world' THEN 1 ELSE 0 END,
-           MAX(m.match_date) DESC,
-           COUNT(*) DESC`,
-        [row.team_id]
-      );
-      teamCompetitions = teamLeagueRes.rows;
+      teamCompetitions = await getTeamCompetitions(row.team_id);
     }
 
     const statsRes = await pool.query(
@@ -360,7 +343,7 @@ async function getPlayerDataFromDb(playerSlugOrId) {
          LEFT JOIN season s ON m.season_id = s.season_id
          LEFT JOIN league l ON s.league_id = l.league_id
          WHERE m.home_team_id = $1 OR m.away_team_id = $1
-         ORDER BY m.match_date DESC
+         ORDER BY m.match_date DESC NULLS LAST
          LIMIT 10`,
         [row.team_id]
       );

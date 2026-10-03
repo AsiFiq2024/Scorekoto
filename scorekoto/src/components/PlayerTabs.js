@@ -49,17 +49,17 @@ export default function PlayerTabs({
         { label: "Red cards", value: Number(selectedStats.redCards ?? 0), icon: "redCard", detail: "Disciplinary record" },
     ] : [];
     const playerInfoItems = [
-        { label: "Nationality", value: player.nationality || "Not recorded", icon: "globe" },
-        { label: "Date of birth", value: formatStoredDate(player.birthDate) || "Not recorded", icon: "cake" },
+        { label: "Nationality", value: player.nationality, icon: "globe" },
+        { label: "Date of birth", value: formatStoredDate(player.birthDate), icon: "cake" },
         {
             label: "Age",
-            value: player.age !== null && player.age !== undefined ? `${player.age} years` : "Not recorded",
+            value: player.age !== null && player.age !== undefined ? `${player.age} years` : null,
             icon: "user",
         },
-        { label: "Position", value: player.position || "Not recorded", icon: "player" },
-        { label: "Weight", value: player.weight || "Not recorded", icon: "ruler" },
-        { label: "Market value", value: player.value || "Not recorded", icon: "coins" },
-    ];
+        { label: "Position", value: player.position, icon: "player" },
+        { label: "Weight", value: player.weight, icon: "ruler" },
+        { label: "Market value", value: player.value, icon: "coins" },
+    ].filter((item) => item.value !== null && item.value !== undefined && String(item.value).trim());
     const snapshotStats = latestStats ? [
         { label: "Appearances", value: Number(latestStats.appearances ?? 0), icon: "flag", detail: "Recorded fixtures" },
         { label: "Goals", value: Number(latestStats.goals ?? 0), icon: "target", detail: "Season total" },
