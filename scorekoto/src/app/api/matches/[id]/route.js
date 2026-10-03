@@ -9,6 +9,7 @@ import {
   shouldRefreshMatchDetails,
 } from '@/app/lib/match-details';
 import { hasKnownKickoffTime } from '@/app/lib/kickoff-time';
+import { fetchFromApiSports } from '@/app/lib/api-sports';
 
 function isFinishedStatus(status) {
   if (!status) return false;
@@ -94,26 +95,21 @@ export async function GET(request, { params }) {
     let providerMessage = null;
 
     // 2. Fetch fresh live data from API-Sports if live, forceRefresh requested, or match not in DB
-    const apiKey = process.env.API_SPORTS_KEY;
-    if (shouldFetchApi && apiKey) {
+    if (shouldFetchApi) {
       try {
-        const liveRes = await fetch(`https://v3.football.api-sports.io/fixtures?id=${matchId}`, {
-          headers: { 'x-apisports-key': apiKey, Accept: 'application/json' },
+        const { data: liveData, error: apiError, quotaReached } = await fetchFromApiSports(`fixtures?id=${matchId}`, {
           cache: forceRefresh ? 'no-store' : 'default',
           next: { revalidate: forceRefresh ? 0 : 20 },
         });
 
-        if (liveRes.ok) {
-          const liveData = await liveRes.json();
-
-          if (liveData.errors && Object.keys(liveData.errors).length > 0) {
-            providerMessage = 'Provider request limit reached; showing saved match data.';
-            if (dbRow) {
-              await recordMatchDetailAttempt(matchId, Object.values(liveData.errors).join(', '));
-            }
+        if (apiError || !liveData) {
+          providerMessage = quotaReached
+            ? 'Provider request limit reached; showing saved match data.'
+            : 'The live provider is temporarily unavailable; showing saved match data.';
+          if (dbRow) {
+            await recordMatchDetailAttempt(matchId, apiError || 'Provider unavailable');
           }
-
-          if (liveData.response && Array.isArray(liveData.response) && liveData.response.length > 0) {
+        } else if (liveData.response && Array.isArray(liveData.response) && liveData.response.length > 0) {
             const item = liveData.response[0];
             if (!item.fixture?.id || !item.fixture?.date || !item.teams?.home?.name || !item.teams?.away?.name) {
               throw new Error('Incomplete fixture payload from API-Sports');
@@ -281,13 +277,7 @@ export async function GET(request, { params }) {
               lineup: lineupData,
             });
           }
-        } else {
-          providerMessage = `The live provider returned HTTP ${liveRes.status}; showing saved match data.`;
-          if (dbRow) {
-            await recordMatchDetailAttempt(matchId, `HTTP ${liveRes.status}`);
-          }
-        }
-      } catch (apiErr) {
+        } catch (apiErr) {
         console.warn('API-Sports single fixture lookup error:', apiErr.message);
         providerMessage = 'The live provider is temporarily unavailable; showing saved match data.';
         if (dbRow) {

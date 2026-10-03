@@ -8,6 +8,7 @@ import {
   shouldRefreshMatchDetails,
 } from "@/app/lib/match-details";
 import { hasKnownKickoffTime } from "@/app/lib/kickoff-time";
+import { fetchFromApiSports } from "@/app/lib/api-sports";
 import MatchDetailClient from "@/components/MatchDetailClient";
 import Link from "next/link";
 import Icon from "@/components/Icon";
@@ -131,33 +132,14 @@ async function getMatchFromDb(matchId) {
 
 // 2. Fetch live/external fixture from API-Sports
 async function getMatchFromApiSports(matchId) {
-  const apiKey = process.env.API_SPORTS_KEY;
-  if (!apiKey) return null;
-
   try {
-    const res = await fetch(
-      `https://v3.football.api-sports.io/fixtures?id=${matchId}`,
-      {
-        headers: {
-          "x-apisports-key": apiKey,
-          Accept: "application/json",
-        },
-        next: { revalidate: 3600 },
-      }
-    );
+    const { data, error } = await fetchFromApiSports(`fixtures?id=${matchId}`, {
+      next: { revalidate: 3600 },
+    });
 
-    if (!res.ok) {
-      console.warn(`API-Sports HTTP ${res.status}. Falling back to PostgreSQL database.`);
-      await recordMatchDetailAttempt(matchId, `HTTP ${res.status}`).catch(() => {});
-      return null;
-    }
-
-    const data = await res.json();
-
-    if (data.errors && Object.keys(data.errors).length > 0) {
-      const errMsg = Object.values(data.errors).join(", ");
-      console.warn("API-Sports quota/token notice:", errMsg, "-> Falling back to PostgreSQL database.");
-      await recordMatchDetailAttempt(matchId, errMsg).catch(() => {});
+    if (error || !data) {
+      console.warn("API-Sports notice:", error, "-> Falling back to PostgreSQL database.");
+      await recordMatchDetailAttempt(matchId, error || "Provider error").catch(() => {});
       return null;
     }
 

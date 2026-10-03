@@ -1,5 +1,6 @@
 import pool from "@/app/lib/db";
 import { getTeamCompetitions } from "@/app/lib/team-competition";
+import { fetchFromApiSports } from "@/app/lib/api-sports";
 import FavoriteButton from "@/components/FavoriteButton";
 import PlayerTabs from "@/components/PlayerTabs";
 import Link from "next/link";
@@ -89,18 +90,13 @@ function buildStatSeasons(rows) {
 
 async function fetchProviderPlayer(playerId) {
   const numericId = Number(playerId);
-  const apiKey = process.env.API_SPORTS_KEY;
-  if (!Number.isInteger(numericId) || numericId <= 0 || !apiKey) return null;
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
 
   try {
-    const response = await fetch(`https://v3.football.api-sports.io/players?id=${numericId}`, {
-      headers: { "x-apisports-key": apiKey },
+    const { data } = await fetchFromApiSports(`players?id=${numericId}`, {
       cache: "no-store",
     });
-    if (!response.ok) return null;
-
-    const payload = await response.json();
-    return Array.isArray(payload?.response) ? payload.response[0] || null : null;
+    return Array.isArray(data?.response) ? data.response[0] || null : null;
   } catch (error) {
     console.warn("Could not hydrate player profile from provider:", error.message);
     return null;

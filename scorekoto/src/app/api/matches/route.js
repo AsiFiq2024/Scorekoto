@@ -3,6 +3,7 @@ import pool from '../../lib/db';
 import { hasKnownKickoffTime } from '../../lib/kickoff-time';
 import { getLineupForMatch } from '../../lib/lineups';
 import { saveMatchDetails } from '../../lib/match-details';
+import { fetchFromApiSports } from '../../lib/api-sports';
 
 // In-memory cache for matches by date and live fixtures
 let liveCache = {
@@ -401,31 +402,20 @@ async function fetchLiveMatchesFromApi(storedLeagues, forceRefresh = false) {
     };
   }
 
-  const apiKey = process.env.API_SPORTS_KEY;
-  if (!apiKey) {
-    return { matches: [], apiLimitHit: false, message: '' };
-  }
-
   try {
-    const res = await fetch('https://v3.football.api-sports.io/fixtures?live=all', {
-      method: 'GET',
-      headers: { 'x-apisports-key': apiKey, Accept: 'application/json' },
+    const { data, error, quotaReached } = await fetchFromApiSports('fixtures?live=all', {
       cache: forceRefresh ? 'no-store' : 'default',
       next: { revalidate: forceRefresh ? 0 : 25 },
     });
 
-    const data = await res.json();
-
-    if (data.errors && Object.keys(data.errors).length > 0) {
-      const errMsg = Object.values(data.errors).join(', ');
-      console.warn('API-Sports notice:', errMsg);
+    if (error || !data) {
       liveCache = {
         timestamp: now,
         data: [],
-        apiLimitHit: true,
-        message: 'Live match API quota reached. Displaying fixtures from database.',
+        apiLimitHit: quotaReached,
+        message: quotaReached ? 'Live match API quota reached. Displaying fixtures from database.' : '',
       };
-      return { matches: [], apiLimitHit: true, message: liveCache.message };
+      return { matches: [], apiLimitHit: quotaReached, message: liveCache.message };
     }
 
     if (data.response && Array.isArray(data.response) && data.response.length > 0) {
@@ -469,28 +459,17 @@ async function fetchFixturesByDate(dateStr, dateLabel, storedLeagues, forceRefre
     return cached;
   }
 
-  const apiKey = process.env.API_SPORTS_KEY;
-  if (!apiKey) {
-    return { matches: [], apiLimitHit: false, message: '' };
-  }
-
   try {
-    const res = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dateStr}&timezone=Asia/Dhaka`, {
-      method: 'GET',
-      headers: { 'x-apisports-key': apiKey, Accept: 'application/json' },
+    const { data, error, quotaReached } = await fetchFromApiSports(`fixtures?date=${dateStr}&timezone=Asia/Dhaka`, {
       cache: forceRefresh ? 'no-store' : 'default',
       next: { revalidate: forceRefresh ? 0 : 60 },
     });
 
-    const data = await res.json();
-
-    if (data.errors && Object.keys(data.errors).length > 0) {
-      const errMsg = Object.values(data.errors).join(', ');
-      console.warn(`API-Sports notice for date ${dateStr}:`, errMsg);
+    if (error || !data) {
       const result = {
         matches: [],
-        apiLimitHit: true,
-        message: 'API quota reached. Showing database records.',
+        apiLimitHit: quotaReached,
+        message: quotaReached ? 'API quota reached. Showing database records.' : '',
       };
       dateCache.set(cacheKey, { timestamp: now, ...result });
       return result;
