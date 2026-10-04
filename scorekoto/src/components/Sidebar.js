@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import Icon from "./Icon";
@@ -97,14 +97,12 @@ export default function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarData, setSidebarData] = useState(emptySidebarData);
   const [isLoading, setIsLoading] = useState(true);
-  const mobileCloseRef = useRef(null);
   const { user, logout, loading: authLoading } = useAuth();
 
   useEffect(() => {
     if (!isMobileOpen) return undefined;
 
     const previousOverflow = document.body.style.overflow;
-    const focusFrame = window.requestAnimationFrame(() => mobileCloseRef.current?.focus());
 
     function handleKeyDown(event) {
       if (event.key !== "Escape") return;
@@ -116,7 +114,6 @@ export default function Sidebar({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.cancelAnimationFrame(focusFrame);
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -263,14 +260,6 @@ export default function Sidebar({
             <span>Navigation</span>
             <strong>Favorites</strong>
           </div>
-          <button
-            ref={mobileCloseRef}
-            type="button"
-            aria-label="Close navigation"
-            onClick={() => closeMobileSidebar({ restoreFocus: true })}
-          >
-            <Icon name="close" />
-          </button>
         </div>
 
         <div className="sidebar-controls">

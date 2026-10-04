@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '../../../lib/db';
 import { comparePassword, generateToken } from '../../../lib/auth';
+import { ensureAuthOtpSchema } from '../../../lib/auth-otp';
 
 export async function POST(request) {
   try {
@@ -15,10 +16,11 @@ export async function POST(request) {
     }
 
     const cleanIdentifier = identifier.trim();
+    await ensureAuthOtpSchema();
 
     // Query user by username or email
     const query = `
-      SELECT user_id, username, email, role, password_hash, created_at
+      SELECT user_id, username, email, role, password_hash, auth_version, created_at
       FROM users
       WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)
       LIMIT 1;
@@ -51,6 +53,7 @@ export async function POST(request) {
       username: user.username,
       email: user.email,
       role: userRole,
+      authVersion: user.auth_version || 0,
     });
 
     const userPayload = {

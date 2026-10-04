@@ -81,6 +81,27 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const verifyRegistration = async (challengeId, otp) => {
+    try {
+      const res = await fetch("/api/auth/verify-registration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challengeId, otp }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || "Verification failed" };
+      }
+
+      setUser(data.user);
+      return { success: true, user: data.user };
+    } catch (err) {
+      console.error("Registration verification error:", err);
+      return { success: false, error: "Network error. Please try again." };
+    }
+  };
+
   // Register handler
   const register = async (username, email, password) => {
     try {
@@ -95,8 +116,7 @@ export function AuthProvider({ children }) {
         return { success: false, error: data.error || "Registration failed" };
       }
 
-      setUser(data.user);
-      return { success: true, user: data.user };
+      return { success: true, ...data };
     } catch (err) {
       console.error("Register request error:", err);
       return { success: false, error: "Network error. Please try again." };
@@ -129,6 +149,7 @@ export function AuthProvider({ children }) {
         loading,
         login,
         register,
+        verifyRegistration,
         logout,
         checkAuth,
       }}

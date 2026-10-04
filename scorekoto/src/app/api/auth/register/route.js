@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import pool from '../../../lib/db';
-import { hashPassword, generateToken } from '../../../lib/auth';
+import { hashPassword } from '../../../lib/auth';
+import {
+  AuthOtpError,
+  createOtpChallenge,
+  isValidEmail,
+  isValidPassword,
+  isValidUsername,
+  normalizeEmail,
+  normalizeUsername,
+} from '../../../lib/auth-otp';
 
 export async function POST(request) {
   try {
@@ -8,29 +17,29 @@ export async function POST(request) {
     const { username, email, password } = body;
 
     // Validation
-    if (!username || !username.trim()) {
+    if (!isValidUsername(username)) {
       return NextResponse.json(
-        { error: 'Username is required' },
+        { error: 'Username must be 3-30 characters using letters, numbers, dots, dashes, or underscores' },
         { status: 400 }
       );
     }
 
-    if (!email || !email.trim() || !email.includes('@')) {
+    if (!isValidEmail(email)) {
       return NextResponse.json(
         { error: 'A valid email address is required' },
         { status: 400 }
       );
     }
 
-    if (!password || password.length < 6) {
+    if (!isValidPassword(password)) {
       return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
+        { error: 'Password must be between 8 and 128 characters long' },
         { status: 400 }
       );
     }
 
-    const cleanUsername = username.trim();
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanUsername = normalizeUsername(username);
+    const cleanEmail = normalizeEmail(email);
 
     // Check if username or email is already taken
     const existingUserQuery = `
@@ -55,50 +64,28 @@ export async function POST(request) {
       );
     }
 
-    // Hash the password
     const passwordHash = await hashPassword(password);
-
-    // Insert new user into database
-    const insertQuery = `
-      INSERT INTO users (username, email, password_hash, role, created_at)
-      VALUES ($1, $2, $3, 'user', CURRENT_TIMESTAMP)
-      RETURNING user_id, username, email, role, created_at;
-    `;
-    const insertResult = await pool.query(insertQuery, [cleanUsername, cleanEmail, passwordHash]);
-    const newUser = insertResult.rows[0];
-
-    // Generate JWT token
-    const token = generateToken({
-      userId: newUser.user_id,
-      username: newUser.username,
-      email: newUser.email,
-      role: newUser.role || 'user',
+    const challenge = await createOtpChallenge({
+      purpose: 'registration',
+      email: cleanEmail,
+      payload: { username: cleanUsername, passwordHash },
+      request,
     });
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
-      message: 'Account created successfully',
-      user: {
-        user_id: newUser.user_id,
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role || 'user',
-        created_at: newUser.created_at,
-      },
-    }, { status: 201 });
-
-    // Set secure HTTP-only cookie
-    response.cookies.set('scorekoto_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
-
-    return response;
+      verificationRequired: true,
+      message: 'We sent a verification code to your email address',
+      ...challenge,
+    }, { status: 202 });
   } catch (error) {
     console.error('Registration error:', error);
+    if (error instanceof AuthOtpError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status }
+      );
+    }
     return NextResponse.json(
       { error: 'Registration failed. Please try again later.' },
       { status: 500 }

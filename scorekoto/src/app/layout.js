@@ -1,7 +1,9 @@
 import "./globals.css";
+import { Suspense } from "react";
 import { Hind_Siliguri, Manrope } from "next/font/google";
 import AppLayout from "@/components/AppLayout";
 import PageLoadingScreen from "@/components/PageLoadingScreen";
+import RouteLoadingBar from "@/components/RouteLoadingBar";
 import { AuthProvider } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 
@@ -31,6 +33,9 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${manrope.variable} ${hindSiliguri.variable}`}>
       <body>
         <PageLoadingScreen />
+        <Suspense fallback={null}>
+          <RouteLoadingBar />
+        </Suspense>
         <AuthProvider>
           <FavoritesProvider>
             <AppLayout>

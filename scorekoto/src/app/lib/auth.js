@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pool from './db';
+import { ensureAuthOtpSchema } from './auth-otp';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'scorekoto_super_secret_jwt_key_2026';
 const TOKEN_EXPIRY = '7d';
@@ -83,9 +84,11 @@ export async function getUserFromRequest(request) {
       return null;
     }
 
+    await ensureAuthOtpSchema();
+
     // Query user from database to ensure user still exists and get latest data
     const query = `
-      SELECT user_id, username, email, role, created_at
+      SELECT user_id, username, email, role, auth_version, created_at
       FROM users
       WHERE user_id = $1
     `;
@@ -96,6 +99,9 @@ export async function getUserFromRequest(request) {
     }
 
     const user = result.rows[0];
+    if (Number(decoded.authVersion || 0) !== Number(user.auth_version || 0)) {
+      return null;
+    }
     return {
       ...user,
       role: user.role || 'user',

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import LocalKickoffTime from "./LocalKickoffTime";
 import Icon from "./Icon";
+import { startRouteProgress } from "@/app/lib/route-progress";
 
 export default function LeagueTabs({
     league,
@@ -21,6 +22,7 @@ export default function LeagueTabs({
     const [activeTab, setActiveTab] = useState("overview");
 
     const handleSeasonChange = (newSeason) => {
+        startRouteProgress();
         router.push(`${pathname}?season=${newSeason}`);
     };
 

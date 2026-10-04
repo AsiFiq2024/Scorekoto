@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AuthShowcase from "@/components/AuthShowcase";
 import Icon from "@/components/Icon";
 import { useAuth } from "@/context/AuthContext";
+import { startRouteProgress } from "@/app/lib/route-progress";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!user) return;
+    startRouteProgress();
     router.push(user.role === "admin" ? "/admin" : "/");
   }, [user, router]);
 
@@ -34,6 +36,7 @@ export default function LoginPage() {
     setIsSubmitting(false);
 
     if (result.success) {
+      startRouteProgress();
       router.push(result.user?.role === "admin" ? "/admin" : "/");
       router.refresh();
     } else {
@@ -103,6 +106,10 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          <div className="auth-recovery-link-row">
+            <Link href="/recover" className="auth-switch-link">Forgot username or password?</Link>
+          </div>
 
           <Link href="/" className="auth-guest-link">
             <Icon name="globe" />

@@ -6,8 +6,10 @@ import MatchTypeSelector from "@/components/MatchTypeSelector";
 import LeagueMatchGroup from "@/components/LeagueMatchGroup";
 import NewsSidebar from "@/components/NewsSidebar";
 import Icon from "@/components/Icon";
+import { useFavorites } from "@/context/FavoritesContext";
 
 export default function Home() {
+  const { isFavorite } = useFavorites();
   const [selectedDate, setSelectedDate] = useState("today");
   const [selectedType, setSelectedType] = useState("live");
   const [liveMatches, setLiveMatches] = useState([]);
@@ -101,6 +103,25 @@ export default function Home() {
   const finishedByLeague = groupByLeague(finishedMatches);
   const upcomingByLeague = groupByLeague(upcomingMatches);
 
+  const isFavoriteLeagueGroup = ([league, leagueMatches]) => {
+    const leagueSlug = league.trim().toLowerCase().replace(/\s+/g, "-");
+
+    return (
+      isFavorite("leagues", league) ||
+      isFavorite("leagues", leagueSlug) ||
+      leagueMatches.some(
+        (match) => match.leagueId != null && isFavorite("leagues", match.leagueId)
+      )
+    );
+  };
+
+  const favoriteLeaguesFirst = (groupedMatches) =>
+    Object.entries(groupedMatches).sort(
+      (firstGroup, secondGroup) =>
+        Number(isFavoriteLeagueGroup(secondGroup)) -
+        Number(isFavoriteLeagueGroup(firstGroup))
+    );
+
   return (
     <main className="home-layout">
       <section className="matches-column">
@@ -186,7 +207,7 @@ export default function Home() {
                       <h2>{selectedView.title}</h2>
                       <span>{selectedView.matches.length}</span>
                     </div>
-                    {Object.entries(selectedView.groupedMatches).map(([league, leagueMatches]) => (
+                    {favoriteLeaguesFirst(selectedView.groupedMatches).map(([league, leagueMatches]) => (
                       <LeagueMatchGroup
                         key={league}
                         league={league}

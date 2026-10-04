@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon, { ReactionIcon } from "@/components/Icon";
+import { startRouteProgress } from "@/app/lib/route-progress";
 
 export default function ProfilePage() {
   const { user, loading: authLoading, checkAuth } = useAuth();
@@ -33,6 +34,7 @@ export default function ProfilePage() {
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
+      startRouteProgress();
       router.push("/login");
     }
   }, [user, authLoading, router]);

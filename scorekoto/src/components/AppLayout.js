@@ -8,9 +8,11 @@ import Sidebar from "./Sidebar";
 export default function AppLayout({ children }) {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const mobileSidebarTriggerRef = useRef(null);
-    const openMobileSidebar = useCallback(() => setIsMobileSidebarOpen(true), []);
+    const toggleMobileSidebar = useCallback(() => {
+        setIsMobileSidebarOpen((isOpen) => !isOpen);
+    }, []);
     const pathname = usePathname();
-    const isAuthRoute = pathname === "/login" || pathname === "/register";
+    const isAuthRoute = pathname === "/login" || pathname === "/register" || pathname === "/recover";
 
     if (isAuthRoute) {
         return <main className="auth-route-content">{children}</main>;
@@ -21,7 +23,7 @@ export default function AppLayout({ children }) {
             <Navbar
                 isMobileSidebarOpen={isMobileSidebarOpen}
                 mobileSidebarTriggerRef={mobileSidebarTriggerRef}
-                onOpenMobileSidebar={openMobileSidebar}
+                onToggleMobileSidebar={toggleMobileSidebar}
             />
 
             <div className="page-layout">

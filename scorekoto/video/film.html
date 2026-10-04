@@ -1,0 +1,7 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ScoreKoto — Project film</title>
+<style>
+@font-face{font-family:Manrope;src:url('./assets/manrope.woff2');font-weight:200 800}
+@font-face{font-family:Bengali;src:url('./assets/bengali.woff2');font-weight:700}
+*{box-sizing:border-box}body{margin:0;background:#050c09;color:#effaf5;font-family:Manrope,Arial,sans-serif;display:grid;place-items:center;min-height:100vh}canvas{width:min(100vw,1920px);aspect-ratio:16/9}#controls{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:15px;background:#10291fee;padding:12px 20px;border:1px solid #355648;border-radius:100px}button{border:0;border-radius:25px;background:#65edb6;color:#061b11;padding:8px 20px;font:700 13px Manrope;cursor:pointer}input{width:340px;accent-color:#65edb6}body.render #controls{display:none}
+</style></head><body><canvas id="film" width="1920" height="1080"></canvas><div id="controls"><button id="play">Play</button><input id="seek" type="range" min="0" max="90" value="0" step="0.01"><span id="time">0:00</span></div><script src="./film.js"></script></body></html>

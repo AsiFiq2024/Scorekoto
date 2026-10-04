@@ -3,8 +3,12 @@ import { NextResponse } from 'next/server';
 const PUBLIC_AUTH_PATHS = [
   '/login',
   '/register',
+  '/recover',
   '/api/auth/login',
   '/api/auth/register',
+  '/api/auth/verify-registration',
+  '/api/auth/otp',
+  '/api/auth/recovery',
   '/api/auth/me',
 ];
 

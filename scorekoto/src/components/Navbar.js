@@ -12,7 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 export default function Navbar({
   isMobileSidebarOpen = false,
   mobileSidebarTriggerRef,
-  onOpenMobileSidebar,
+  onToggleMobileSidebar,
 }) {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
@@ -132,8 +132,8 @@ export default function Navbar({
           type="button"
           aria-controls="favorite-navigation-drawer"
           aria-expanded={isMobileSidebarOpen}
-          aria-label={isMobileSidebarOpen ? "Navigation menu open" : "Open navigation menu"}
-          onClick={onOpenMobileSidebar}
+          aria-label={isMobileSidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+          onClick={onToggleMobileSidebar}
         >
           <span className="mobile-sidebar-trigger-icon"><MobileMenuIcon /></span>
         </button>

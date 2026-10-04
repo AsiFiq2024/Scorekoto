@@ -16,6 +16,20 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Email verification and account recovery
+
+Signup and account recovery use email OTP codes delivered through Resend. Add these server-only values to `.env.local` and to the production environment:
+
+```bash
+RESEND_API_KEY=re_your_api_key
+AUTH_EMAIL_FROM=ScoreKoto <account@your-verified-domain.example>
+OTP_SECRET=replace-with-a-long-random-secret
+```
+
+The sender address must use a domain verified in Resend. `OTP_SECRET` is used only to hash verification codes and recovery tokens; if omitted, the server falls back to `JWT_SECRET`. Never expose these values with a `NEXT_PUBLIC_` prefix.
+
+The application creates the OTP table automatically when the auth API first runs. The equivalent manual migration is available at `database/auth_otp_setup.sql`.
+
 ## Match detail data
 
 Match events, commentary, statistics, and lineups are cached from API-Football. Run the coverage audit without changing data:
